@@ -101,7 +101,17 @@ function sheetToObjects(sheet, keys) {
   if (data.length <= 1) return [];
   return data.slice(1).map(row => {
     const obj = {};
-    keys.forEach((k, i) => { obj[k] = row[i] !== undefined ? row[i] : ''; });
+    keys.forEach((k, i) => {
+      let val = row[i] !== undefined ? row[i] : '';
+      // Converte objetos Date do Sheets para string ISO yyyy-MM-dd
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, '0');
+        const d = String(val.getDate()).padStart(2, '0');
+        val = y + '-' + m + '-' + d;
+      }
+      obj[k] = val;
+    });
     return obj;
   }).filter(r => r.id);
 }
@@ -162,7 +172,8 @@ function getMaoDeObra(params) {
   return all.filter(r => {
     if (params.funcionario && r.funcionario !== params.funcionario) return false;
     if (params.mes) {
-      const rowMes = String(r.data).slice(0, 7);
+      // r.data agora é sempre string ISO "yyyy-MM-dd" após sheetToObjects
+      const rowMes = String(r.data).substring(0, 7);
       if (rowMes !== params.mes) return false;
     }
     return true;
@@ -172,17 +183,39 @@ function getMaoDeObra(params) {
 // ─── Dashboard ───────────────────────────────────────────────
 
 function getDashboard() {
-  const obras = getAll(SHEETS.OBRAS);
-  const obrasAndamento = obras.filter(o => o.fase === 'ANDAMENTO').length;
-  const totalPago = obras.reduce((s, o) => s + (parseFloat(o.valorPago) || 0), 0);
-  const totalReceber = obras.reduce((s, o) => s + (parseFloat(o.valorReceber) || 0), 0);
-  const lucroTotal = obras.reduce((s, o) => s + (parseFloat(o.lucro) || 0), 0);
+  const obras       = getAll(SHEETS.OBRAS);
+  const moAll       = getAll(SHEETS.MAO_OBRA);
+  const orcamentos  = getAll(SHEETS.ORCAMENTOS);
 
-  const obrasPorFase = obras.reduce((acc, o) => {
+  // Obras
+  const obrasAndamento = obras.filter(o => o.fase === 'ANDAMENTO').length;
+  const totalPago      = obras.reduce((s, o) => s + (parseFloat(o.valorPago)    || 0), 0);
+  const totalReceber   = obras.reduce((s, o) => s + (parseFloat(o.valorReceber) || 0), 0);
+  const lucroTotal     = obras.reduce((s, o) => s + (parseFloat(o.lucro)        || 0), 0);
+  const obrasPorFase   = obras.reduce((acc, o) => {
     const f = o.fase || 'Sem fase';
     acc[f] = (acc[f] || 0) + 1;
     return acc;
   }, {});
+
+  // Mão de Obra — mês corrente
+  const mesAtual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
+  const moMes    = moAll.filter(r => String(r.data).substring(0, 7) === mesAtual);
+  const moTotalValor  = moMes.reduce((s, r) => s + (parseFloat(r.valor) || 0), 0);
+  const moTotalVale   = moMes.reduce((s, r) => s + (parseFloat(r.vale)  || 0), 0);
+  const moSaldo       = moTotalValor - moTotalVale;
+  const moPorFunc     = {};
+  moMes.forEach(r => {
+    if (!moPorFunc[r.funcionario]) moPorFunc[r.funcionario] = { valor: 0, vale: 0 };
+    moPorFunc[r.funcionario].valor += parseFloat(r.valor) || 0;
+    moPorFunc[r.funcionario].vale  += parseFloat(r.vale)  || 0;
+  });
+
+  // Orçamentos
+  const orcTotal     = orcamentos.length;
+  const orcAprovados = orcamentos.filter(o => o.status === 'APROVADO').length;
+  const orcAguardando= orcamentos.filter(o => o.status === 'AGUARDANDO').length;
+  const orcValorTotal= orcamentos.reduce((s, o) => s + (parseFloat(o.valorTotal) || 0), 0);
 
   return {
     totalObras: obras.length,
@@ -192,6 +225,8 @@ function getDashboard() {
     lucroTotal,
     obras: obras.slice(-10).reverse(),
     obrasPorFase,
+    mo: { mesAtual, totalValor: moTotalValor, totalVale: moTotalVale, saldo: moSaldo, porFunc: moPorFunc },
+    orc: { total: orcTotal, aprovados: orcAprovados, aguardando: orcAguardando, valorTotal: orcValorTotal },
   };
 }
 
@@ -224,8 +259,8 @@ function itemSchema() {
 
 function obraSchema() {
   return {
-    headers: ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro'],
-    keys:    ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro'],
+    headers: ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens'],
+    keys:    ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens'],
   };
 }
 
@@ -241,6 +276,323 @@ function orcamentoSchema() {
     headers: ['id', 'cliente', 'telefone', 'email', 'data', 'status', 'obs', 'itens', 'valorTotal'],
     keys:    ['id', 'cliente', 'telefone', 'email', 'data', 'status', 'obs', 'itens', 'valorTotal'],
   };
+}
+
+// ─── Seed: dados de teste completos ─────────────────────────
+
+/**
+ * Roda UMA VEZ para popular todas as abas com dados fictícios.
+ * Execute via: Apps Script → selecionar seedTestData → ▶ Executar
+ * Para limpar tudo e recomeçar, execute clearAllData() primeiro.
+ */
+function seedTestData() {
+  seedBaseItens();
+  seedClientes();
+  seedObras();
+  seedMaoDeObra();
+  seedOrcamentos();
+  Logger.log('✅ Seed completo! Todas as abas foram populadas.');
+}
+
+function clearAllData() {
+  Object.values(SHEETS).forEach(name => {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(name);
+    if (sheet) {
+      const last = sheet.getLastRow();
+      if (last > 1) sheet.deleteRows(2, last - 1);
+    }
+  });
+  Logger.log('🗑️ Todos os dados foram apagados (cabeçalhos mantidos).');
+}
+
+function seedClientes() {
+  const sheet = getOrCreateSheet(SHEETS.CLIENTES, clienteSchema().headers);
+  if (sheet.getLastRow() > 1) { Logger.log('Clientes já populados.'); return; }
+
+  const clientes = [
+    ['João Marcos Ferreira',   '(62) 99821-4455', 'joaomarcos@gmail.com',     '2025-08-10'],
+    ['Padre Máximo Silva',     '(62) 98745-3321', 'padremaximo@diocese.org',  '2025-09-15'],
+    ['Dinamar Construções',    '(62) 99632-1187', 'dinamar@construtora.com',  '2025-10-02'],
+    ['Iuri Pet Shop',          '(62) 98811-5599', 'iuri@petshop.com.br',      '2025-11-20'],
+    ['Ezequiel Pirenópolis',   '(64) 99134-7762', 'ezequiel@email.com',       '2026-01-08'],
+    ['Erik Borges',            '(62) 99207-8843', 'erikborges@gmail.com',     '2026-02-14'],
+    ['BRG Fábrica',            '(62) 3201-4400',  'contato@brg.ind.br',       '2026-02-28'],
+    ['Igreja Nerópolis',       '(62) 98900-1122', 'igrejaneropolis@gmail.com','2026-03-05'],
+    ['Renato Cavalcante',      '(62) 99455-8876', 'renato.c@gmail.com',       '2026-03-18'],
+    ['Ana Beatriz Souza',      '(62) 99022-6631', 'anabeatriz@hotmail.com',   '2026-04-01'],
+  ];
+
+  clientes.forEach(([nome, telefone, email, dataCadastro]) => {
+    sheet.appendRow([Utilities.getUuid(), nome, telefone, email, dataCadastro]);
+  });
+  Logger.log('Clientes: ' + clientes.length + ' registros inseridos.');
+}
+
+function seedObras() {
+  const sheet = getOrCreateSheet(SHEETS.OBRAS, obraSchema().headers);
+  if (sheet.getLastRow() > 1) { Logger.log('Obras já populadas.'); return; }
+
+  // itens de exemplo para popular
+  const itensIgreja = JSON.stringify([
+    {produto:'PLACA RF 1,20x2,40', qtd:60, precoUnit:75, total:4500},
+    {produto:'MONTANTE 70 - STEEL', qtd:80, precoUnit:70, total:5600},
+    {produto:'GUIA 70 STEEL', qtd:40, precoUnit:70, total:2800},
+    {produto:'LÃ DE VIDRO', qtd:8, precoUnit:145, total:1160},
+    {produto:'PARAFUSO 25', qtd:8, precoUnit:50, total:400},
+    {produto:'BASECOAT', qtd:6, precoUnit:75, total:450},
+  ]);
+  const itensDimar = JSON.stringify([
+    {produto:'PLACA ST 1,20x2,40', qtd:30, precoUnit:50, total:1500},
+    {produto:'MONTANTE 48', qtd:40, precoUnit:18.90, total:756},
+    {produto:'GUIA 48', qtd:30, precoUnit:15.50, total:465},
+    {produto:'GESSO COLA 20KG', qtd:8, precoUnit:30, total:240},
+    {produto:'FITA TELADA 90m', qtd:4, precoUnit:26, total:104},
+  ]);
+  const itensPetShop = JSON.stringify([
+    {produto:'PLACA ST 1,20x2,40', qtd:80, precoUnit:50, total:4000},
+    {produto:'MONTANTE 70', qtd:100, precoUnit:22, total:2200},
+    {produto:'GUIA 70', qtd:60, precoUnit:19, total:1140},
+    {produto:'KIT PORTA 70/80/90', qtd:3, precoUnit:480, total:1440},
+    {produto:'MASSA KNAUF 28Kg', qtd:10, precoUnit:70, total:700},
+  ]);
+  const itensPirenopolis = JSON.stringify([
+    {produto:'PLACA ST 1,20x1,80', qtd:40, precoUnit:35.90, total:1436},
+    {produto:'MONTANTE 70', qtd:50, precoUnit:22, total:1100},
+    {produto:'GUIA 70', qtd:30, precoUnit:19, total:570},
+    {produto:'BASECOAT', qtd:8, precoUnit:75, total:600},
+    {produto:'FITA TELADA 90m', qtd:6, precoUnit:26, total:156},
+  ]);
+  const itensDeck = JSON.stringify([
+    {produto:'PAINEL WALL', qtd:8, precoUnit:350, total:2800},
+    {produto:'MONTANTE 70 - STEEL', qtd:10, precoUnit:70, total:700},
+    {produto:'GUIA 70 STEEL', qtd:8, precoUnit:70, total:560},
+    {produto:'PARAFUSO 4,2X13mm BROCA', qtd:2, precoUnit:47, total:94},
+  ]);
+  const itensAnaBeatriz = JSON.stringify([
+    {produto:'GESSO COLA 20KG', qtd:10, precoUnit:30, total:300},
+    {produto:'MONTANTE 70', qtd:40, precoUnit:22, total:880},
+    {produto:'GUIA 70', qtd:30, precoUnit:19, total:570},
+    {produto:'PLACA ST 1,20x2,40', qtd:50, precoUnit:50, total:2500},
+    {produto:'BASECOAT', qtd:8, precoUnit:75, total:600},
+  ]);
+
+  // [nome, dtInicio, dtEntrega, fase, valorOrcamento, valorFechado, valorPago, valorReceber, variaveis, material, maoDeObra, custoObra, lucro, itens]
+  const obras = [
+    ['OBRA IGREJA PE MAX',              '2026-04-07','',           'EXECUTADO', 43940, 43940, 43940, 0,    7000,12550,10000,29550,14390, itensIgreja   ],
+    ['OBRA DINAMAR ALVORADA',           '2026-03-15','2026-04-20','EXECUTADO', 10000, 10000, 10000, 0,    0,   4900, 3200, 8100, 1900, itensDimar    ],
+    ['OBRA IURI PET SHOP',              '2026-03-20','',           'ANDAMENTO',21950, 21950, 21950, 0,    0,   9843, 4660,14503, 7447, itensPetShop  ],
+    ['OBRA JM FORRO PVC',               '2026-04-10','',           'ANDAMENTO', 8500,  8500,  4250, 4250, 0,   2800, 1800, 4600, 3900, ''            ],
+    ['OBRA JM EQUATORIAL BRASÍLIA',     '2026-04-01','2026-04-08','EXECUTADO',  4000,  4000,  4000, 0,    0,      0,    0,    0, 4000, ''            ],
+    ['OBRA EZEQUIEL PIRENÓPOLIS',       '2026-03-10','2026-04-05','EXECUTADO', 16400, 15103, 15103, 0,  600,   5300, 3800, 9700, 5403, itensPirenopolis],
+    ['OBRA ERICK CONSULTÓRIO',          '2026-04-13','',           'EXECUTADO',  7300,  7300,     0, 7300, 0,      0,    0,    0, 7300, ''            ],
+    ['OBRA IGREJA NERÓPOLIS PE EDISON', '2026-02-20','2026-03-30','EXECUTADO',  7500,  7500,  7500, 0,    0,      0,    0,    0, 7500, ''            ],
+    ['OBRA BRG PAREDE E FORRO FÁBRICA', '2026-04-14','',           'EXECUTADO',  2900,  2900,     0, 2900, 0,      0,    0,    0, 2900, ''            ],
+    ['OBRA ERIK BORGES DECK',           '2026-04-20','',           'ANDAMENTO',  5490,  5490,     0, 5490, 0,      0,    0,    0, 5490, itensDeck     ],
+    ['OBRA RENATO CAVALCANTE PAREDE',   '2026-04-22','',           'ANDAMENTO',  3800,  3800,  1900, 1900, 0,   1200,  900, 2100, 1700, ''            ],
+    ['OBRA ANA BEATRIZ GESSO',          '2026-05-02','',           'ORÇAMENTO', 12000, 12000,     0,12000, 0,      0,    0,    0,    0, itensAnaBeatriz],
+  ];
+
+  obras.forEach(([nome, dtInicio, dtEntrega, fase, valorOrcamento, valorFechado, valorPago, valorReceber, variaveis, material, maoDeObra, custoObra, lucro, itens]) => {
+    sheet.appendRow([Utilities.getUuid(), nome, dtInicio, dtEntrega, fase, valorOrcamento, valorFechado, valorPago, valorReceber, variaveis, material, maoDeObra, custoObra, lucro, itens]);
+  });
+  Logger.log('Obras: ' + obras.length + ' registros inseridos.');
+}
+
+function seedMaoDeObra() {
+  const sheet = getOrCreateSheet(SHEETS.MAO_OBRA, maoObraSchema().headers);
+  if (sheet.getLastRow() > 1) { Logger.log('MO já populada.'); return; }
+
+  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  function diaSemana(dateStr) {
+    const [y,m,d] = dateStr.split('-');
+    return dias[new Date(y, m-1, d).getDay()];
+  }
+
+  // [funcionario, data, servico, valor, vale]
+  const lancamentos = [
+    // ── MARÇO ──
+    ['Thadeu',  '2026-03-03','Saldo Alfa',              1200, 100 ],
+    ['Thadeu',  '2026-03-04','Reparos Alfa',             300,  50  ],
+    ['Thadeu',  '2026-03-06','Candeeiro',                150, 200  ],
+    ['Thadeu',  '2026-03-10','Leopoldo Escola',          200, 245  ],
+    ['Thadeu',  '2026-03-11','Gran Lef',                 300, 892  ],
+    ['Thadeu',  '2026-03-17','Candeeiro',                400,   0  ],
+    ['Thadeu',  '2026-03-18','Candeeiro',                400,   0  ],
+    ['Thadeu',  '2026-03-24','Igreja Ouro Verde',       1200,   0  ],
+    ['Thadeu',  '2026-03-25','Igreja Ouro Verde',        800, 200  ],
+    ['Thadeu',  '2026-03-31','Tamboleco',                100, 200  ],
+    ['Vitor',   '2026-03-02','Doce Paladar',               0,   0  ],
+    ['Vitor',   '2026-03-09','Doce Paladar',               0, 188  ],
+    ['Vitor',   '2026-03-10','Doce Paladar',               0,   0  ],
+    ['Vitor',   '2026-03-13','Doce Paladar',               0, 1300 ],
+    ['Vitor',   '2026-03-17','Gran Lef',                 500,   0  ],
+    ['Vitor',   '2026-03-18','Demolição Marco',          540,   0  ],
+    ['Vitor',   '2026-03-24','Forro BRG',                200,   0  ],
+    ['Vitor',   '2026-03-25','Forro BRG',                350,   0  ],
+    ['Gabriel', '2026-03-02','Saldo Alfa',               605,   0  ],
+    ['Gabriel', '2026-03-03','Reparos Alfa',             200,   0  ],
+    ['Gabriel', '2026-03-10','Candeeiro',               1250, 188  ],
+    ['Gabriel', '2026-03-11','Gran Lef',                 400,   0  ],
+    ['Gabriel', '2026-03-17','Leopoldo Escola',          390, 745  ],
+    ['Gabriel', '2026-03-18','Demolição Marco',          540,   0  ],
+    ['Gabriel', '2026-03-24','Forro BRG',                200,   0  ],
+    ['Gabriel', '2026-03-31','Leopoldo de Bulhões',      650,   0  ],
+    ['Dim',     '2026-03-02','Saldo Alfa',               655,   0  ],
+    ['Dim',     '2026-03-03','Reparos Alfa',             200,   0  ],
+    ['Dim',     '2026-03-10','Candeeiro',               1250, 188  ],
+    ['Dim',     '2026-03-11','Gran Lef',                 400,   0  ],
+    ['Dim',     '2026-03-17','Leopoldo Escola',          390, 645  ],
+    ['Dim',     '2026-03-25','Gran Laif',                100,   0  ],
+    ['Dim',     '2026-03-31','Leopoldo de Bulhões',      650,   0  ],
+    ['Edir',    '2026-03-06','Obra Joelson',            2400, 1500 ],
+    ['Edir',    '2026-03-17','Obra Pet Shop',           4660,   0  ],
+    ['Edir',    '2026-03-24','Obra Erick',              1400, 188  ],
+    ['Leandro', '2026-03-03','Candeeiro',                200,   0  ],
+    ['Leandro', '2026-03-04','Lavagem S10',               70,   0  ],
+    ['Leandro', '2026-03-06','Semana',                   600,   0  ],
+    ['Leandro', '2026-03-11','Remoção Forro Marcos',     180, 111  ],
+    ['Leandro', '2026-03-12','Demolição Coxinha',        350,   0  ],
+    ['Leandro', '2026-03-13','Semana',                   600,   0  ],
+    // ── ABRIL ──
+    ['Thadeu',  '2026-04-01','Igreja Ouro Verde',       1700, 100  ],
+    ['Thadeu',  '2026-04-03','Semana Passada',          1200, 1400 ],
+    ['Thadeu',  '2026-04-06','Equatorial Brasília',      800,   0  ],
+    ['Thadeu',  '2026-04-10','CMM',                      250, 400  ],
+    ['Thadeu',  '2026-04-15','Equatorial PVC',           300, 300  ],
+    ['Thadeu',  '2026-04-17','Igreja',                  5000, 200  ],
+    ['Vitor',   '2026-04-06','Igreja',                     0, 200  ],
+    ['Vitor',   '2026-04-11','CMM',                      250, 250  ],
+    ['Vitor',   '2026-04-13','Igreja',                     0, 1700 ],
+    ['Vitor',   '2026-04-17','Igreja',                  5000,   0  ],
+    ['Vitor',   '2026-04-20','Doce Paladar',            1450,   0  ],
+    ['Vitor',   '2026-04-22','Renato Parede Reparos',    260,   0  ],
+    ['Vitor',   '2026-04-23','BRG Parede e Forro',       350,   0  ],
+    ['Gabriel', '2026-04-06','Gran Life',                150,   0  ],
+    ['Gabriel', '2026-04-07','Reparos',                  150,   0  ],
+    ['Gabriel', '2026-04-10','Dinamar',                 1600, 150  ],
+    ['Gabriel', '2026-04-17','Obra Pirenópolis',        2000, 188  ],
+    ['Gabriel', '2026-04-20','Igreja',                     0, 1700 ],
+    ['Dim',     '2026-04-06','Gran Life',                150,   0  ],
+    ['Dim',     '2026-04-07','Reparos',                  150,   0  ],
+    ['Dim',     '2026-04-10','Dinamar',                 1600,   0  ],
+    ['Dim',     '2026-04-17','Obra Pirenópolis',        2000, 188  ],
+    ['Dim',     '2026-04-20','Pirenópolis',                0,   0  ],
+    ['Edir',    '2026-04-13','Obra Pet Shop',           4660,   0  ],
+    ['Edir',    '2026-04-16','Obra Erick',                 0,   0  ],
+    ['Edir',    '2026-04-17','Obra Erick',              1400, 188  ],
+    ['Edir',    '2026-04-20','Saldo Semana',            1872,   0  ],
+    ['Edir',    '2026-04-22','Obra Hangar',                0,   0  ],
+    ['Edir',    '2026-04-23','Obra Erick',               250,   0  ],
+    ['Edir',    '2026-04-24','Leonel Reparos',           400, 1000 ],
+    ['Leandro', '2026-04-06','Obra Igreja',                0,   0  ],
+    ['Leandro', '2026-04-09','Ajuda Dim',                700,   0  ],
+    ['Leandro', '2026-04-10','Diária',                   155,   0  ],
+    ['Leandro', '2026-04-13','Obra Igreja',                0,   0  ],
+    // ── MAIO ──
+    ['Thadeu',  '2026-05-02','Obra Ana Beatriz',         600,   0  ],
+    ['Thadeu',  '2026-05-05','Obra Renato',              800, 300  ],
+    ['Gabriel', '2026-05-02','Obra Ana Beatriz',         600,   0  ],
+    ['Gabriel', '2026-05-05','Obra BRG Reparo',          400,   0  ],
+    ['Dim',     '2026-05-02','Obra Ana Beatriz',         600,   0  ],
+    ['Dim',     '2026-05-05','Ajuda Gabriel',            350,   0  ],
+    ['Vitor',   '2026-05-03','Acabamento Dinamar',       500, 200  ],
+    ['Edir',    '2026-05-02','Obra Erik Deck',           900,   0  ],
+    ['Edir',    '2026-05-05','Obra Erik Deck',           600, 188  ],
+    ['Leandro', '2026-05-03','Transporte Materiais',     200,   0  ],
+  ];
+
+  lancamentos.forEach(([funcionario, data, servico, valor, vale]) => {
+    sheet.appendRow([Utilities.getUuid(), funcionario, data, diaSemana(data), servico, valor, vale]);
+  });
+  Logger.log('Mão de Obra: ' + lancamentos.length + ' registros inseridos.');
+}
+
+function seedOrcamentos() {
+  const sheet = getOrCreateSheet(SHEETS.ORCAMENTOS, orcamentoSchema().headers);
+  if (sheet.getLastRow() > 1) { Logger.log('Orçamentos já populados.'); return; }
+
+  const orcamentos = [
+    {
+      cliente: 'Ana Beatriz Souza', telefone: '(62) 99022-6631', email: 'anabeatriz@hotmail.com',
+      data: '2026-04-28', status: 'APROVADO', obs: 'Forro de gesso sala + quarto. Entrega em 15 dias.',
+      valorTotal: 12000,
+      itens: JSON.stringify([
+        { produto: 'GESSO COLA 20KG',    qtd: 10, precoUnit: 30,   total: 300  },
+        { produto: 'MONTANTE 70',         qtd: 40, precoUnit: 22,   total: 880  },
+        { produto: 'GUIA 70',             qtd: 30, precoUnit: 19,   total: 570  },
+        { produto: 'PLACA ST 1,20x2,40', qtd: 50, precoUnit: 50,   total: 2500 },
+        { produto: 'PARAFUSO 25',         qtd: 5,  precoUnit: 50,   total: 250  },
+        { produto: 'FITA TELADA 90m',     qtd: 6,  precoUnit: 26,   total: 156  },
+        { produto: 'BASECOAT',            qtd: 8,  precoUnit: 75,   total: 600  },
+      ])
+    },
+    {
+      cliente: 'Renato Cavalcante', telefone: '(62) 99455-8876', email: 'renato.c@gmail.com',
+      data: '2026-04-15', status: 'APROVADO', obs: 'Divisória parede escritório.',
+      valorTotal: 3800,
+      itens: JSON.stringify([
+        { produto: 'MONTANTE 48',   qtd: 20, precoUnit: 18.90, total: 378  },
+        { produto: 'GUIA 48',       qtd: 15, precoUnit: 15.50, total: 232.5},
+        { produto: 'PLACA ST 1,20x1,80', qtd: 20, precoUnit: 35.90, total: 718},
+        { produto: 'PARAFUSO 25',   qtd: 3,  precoUnit: 50,    total: 150  },
+        { produto: 'MASSA KNAUF 28Kg', qtd: 4, precoUnit: 70,  total: 280  },
+      ])
+    },
+    {
+      cliente: 'João Marcos Ferreira', telefone: '(62) 99821-4455', email: 'joaomarcos@gmail.com',
+      data: '2026-03-10', status: 'APROVADO', obs: 'Forro PVC banheiro e lavabo.',
+      valorTotal: 8500,
+      itens: JSON.stringify([
+        { produto: 'PLACA CIMENTÍCIA',   qtd: 15, precoUnit: 95,  total: 1425 },
+        { produto: 'MONTANTE 70',         qtd: 25, precoUnit: 22,  total: 550  },
+        { produto: 'GUIA 70',             qtd: 20, precoUnit: 19,  total: 380  },
+        { produto: 'BASECOAT',            qtd: 5,  precoUnit: 75,  total: 375  },
+        { produto: 'FITA TELADA GLASSROC',qtd: 3,  precoUnit: 80,  total: 240  },
+      ])
+    },
+    {
+      cliente: 'Iuri Pet Shop', telefone: '(62) 98811-5599', email: 'iuri@petshop.com.br',
+      data: '2026-03-18', status: 'APROVADO', obs: 'Drywall completo loja nova. Inclui divisórias e forro.',
+      valorTotal: 21950,
+      itens: JSON.stringify([
+        { produto: 'PLACA ST 1,20x2,40', qtd: 80,  precoUnit: 50,   total: 4000 },
+        { produto: 'MONTANTE 70',         qtd: 100, precoUnit: 22,   total: 2200 },
+        { produto: 'GUIA 70',             qtd: 60,  precoUnit: 19,   total: 1140 },
+        { produto: 'KIT PORTA 70/80/90',  qtd: 3,   precoUnit: 480,  total: 1440 },
+        { produto: 'PARAFUSO 25',         qtd: 8,   precoUnit: 50,   total: 400  },
+        { produto: 'MASSA KNAUF 28Kg',    qtd: 10,  precoUnit: 70,   total: 700  },
+        { produto: 'BASECOAT',            qtd: 12,  precoUnit: 75,   total: 900  },
+      ])
+    },
+    {
+      cliente: 'Erik Borges', telefone: '(62) 99207-8843', email: 'erikborges@gmail.com',
+      data: '2026-04-18', status: 'AGUARDANDO', obs: 'Deck externo + painel wall varanda.',
+      valorTotal: 5490,
+      itens: JSON.stringify([
+        { produto: 'PAINEL WALL',         qtd: 8,  precoUnit: 350, total: 2800 },
+        { produto: 'MONTANTE 70 - STEEL', qtd: 10, precoUnit: 70,  total: 700  },
+        { produto: 'GUIA 70 STEEL',       qtd: 8,  precoUnit: 70,  total: 560  },
+        { produto: 'PARAFUSO 4,2X13mm BROCA', qtd: 2, precoUnit: 47, total: 94 },
+      ])
+    },
+    {
+      cliente: 'BRG Fábrica', telefone: '(62) 3201-4400', email: 'contato@brg.ind.br',
+      data: '2026-02-25', status: 'RECUSADO', obs: 'Cliente optou por outro fornecedor.',
+      valorTotal: 6200,
+      itens: JSON.stringify([
+        { produto: 'PLACA RF 1,20x2,40', qtd: 20, precoUnit: 75,  total: 1500 },
+        { produto: 'MONTANTE 90',         qtd: 30, precoUnit: 25,  total: 750  },
+        { produto: 'GUIA 90',             qtd: 20, precoUnit: 20,  total: 400  },
+        { produto: 'LÃ DE VIDRO',         qtd: 5,  precoUnit: 145, total: 725  },
+      ])
+    },
+  ];
+
+  orcamentos.forEach(o => {
+    sheet.appendRow([Utilities.getUuid(), o.cliente, o.telefone, o.email, o.data, o.status, o.obs, o.itens, o.valorTotal]);
+  });
+  Logger.log('Orçamentos: ' + orcamentos.length + ' registros inseridos.');
 }
 
 // ─── Seed: importar Base de Itens inicial ───────────────────
