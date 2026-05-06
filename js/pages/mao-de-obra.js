@@ -1,26 +1,43 @@
 const MaoDeObra = {
-  dados: [],
-  filtroFuncionario: '',
-  filtroMes: '',
+  dados: [],       // todos os dados do backend (mês filtrado)
+  dadosFiltrados: [],
 
   async render() {
     document.getElementById('pageTitle').textContent = 'Controle de Mão de Obra';
     const mesAtual = new Date().toISOString().slice(0, 7);
     document.getElementById('content').innerHTML = `
-      <div class="d-flex flex-wrap gap-2 mb-4 align-items-end">
-        <div>
-          <label class="form-label mb-1 small">Funcionário</label>
-          <select class="form-select form-select-sm" id="filtroFunc" style="min-width:140px">
-            <option value="">Todos</option>
-            ${CONFIG.funcionarios.map(f => `<option value="${f}">${f}</option>`).join('')}
-          </select>
+      <!-- Filtros -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-3">
+          <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-3">
+              <label class="form-label mb-1 small fw-semibold">Funcionário</label>
+              <select class="form-select form-select-sm" id="filtroFunc" onchange="MaoDeObra.aplicarFiltros()">
+                <option value="">Todos</option>
+                ${CONFIG.funcionarios.map(f => `<option value="${f}">${f}</option>`).join('')}
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label mb-1 small fw-semibold">Mês</label>
+              <input type="month" class="form-control form-control-sm" id="filtroMes" value="${mesAtual}"
+                onchange="MaoDeObra.buscar()">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label mb-1 small fw-semibold">Semana</label>
+              <select class="form-select form-select-sm" id="filtroSemana" onchange="MaoDeObra.aplicarFiltros()">
+                <option value="">Todas as semanas</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3 d-flex gap-2">
+              <button class="btn btn-primary btn-sm flex-fill" onclick="MaoDeObra.buscar()">
+                <i class="bi bi-search me-1"></i>Buscar
+              </button>
+              <button class="btn btn-success btn-sm flex-fill" onclick="MaoDeObra.abrirModal()">
+                <i class="bi bi-plus-lg me-1"></i>Novo
+              </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <label class="form-label mb-1 small">Mês</label>
-          <input type="month" class="form-control form-control-sm" id="filtroMes" value="${mesAtual}">
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="MaoDeObra.buscar()"><i class="bi bi-search me-1"></i>Filtrar</button>
-        <button class="btn btn-success btn-sm ms-auto" onclick="MaoDeObra.abrirModal()"><i class="bi bi-plus-lg me-1"></i>Novo Lançamento</button>
       </div>
 
       <div class="row g-3 mb-4" id="moKpis"></div>
@@ -32,12 +49,12 @@ const MaoDeObra = {
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="tabelaMO">
+            <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
                   <th>Data</th><th>Dia</th><th>Funcionário</th><th>Serviço</th>
                   <th class="text-end">Valor</th><th class="text-end">Vale</th>
-                  <th class="text-end">Total Dia</th><th class="text-center">Ações</th>
+                  <th class="text-end">Saldo Dia</th><th class="text-center">Ações</th>
                 </tr>
               </thead>
               <tbody id="tbodyMO"><tr><td colspan="8" class="text-center py-4 text-muted">Carregando...</td></tr></tbody>
@@ -100,6 +117,57 @@ const MaoDeObra = {
     await this.buscar();
   },
 
+  calcularSemanas(mes) {
+    if (!mes) return [];
+    const [y, m] = mes.split('-').map(Number);
+    const ultimo = new Date(y, m, 0);
+    const semanas = [];
+    let cur = new Date(y, m - 1, 1);
+    while (cur <= ultimo) {
+      const ini = new Date(cur);
+      const fim = new Date(cur);
+      fim.setDate(fim.getDate() + (6 - fim.getDay()));
+      if (fim > ultimo) fim.setTime(ultimo.getTime());
+      semanas.push({
+        ini: ini.toISOString().slice(0, 10),
+        fim: fim.toISOString().slice(0, 10),
+        label: `${ini.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} – ${fim.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}`,
+      });
+      cur.setDate(fim.getDate() + 1);
+    }
+    return semanas;
+  },
+
+  atualizarSemanasSelect() {
+    const mes = document.getElementById('filtroMes')?.value;
+    const sel = document.getElementById('filtroSemana');
+    if (!sel) return;
+    const semanas = this.calcularSemanas(mes);
+    const atual = sel.value;
+    sel.innerHTML = '<option value="">Todas as semanas</option>' +
+      semanas.map((s, i) => `<option value="${i}" ${atual == i ? 'selected' : ''}>${s.label}</option>`).join('');
+  },
+
+  aplicarFiltros() {
+    this.atualizarSemanasSelect();
+    const func   = document.getElementById('filtroFunc')?.value    || '';
+    const mes    = document.getElementById('filtroMes')?.value     || '';
+    const semIdx = document.getElementById('filtroSemana')?.value;
+    let dados    = [...this.dados];
+
+    if (func) dados = dados.filter(r => r.funcionario === func);
+
+    if (semIdx !== '' && semIdx !== undefined) {
+      const semanas = this.calcularSemanas(mes);
+      const sem = semanas[parseInt(semIdx)];
+      if (sem) dados = dados.filter(r => r.data >= sem.ini && r.data <= sem.fim);
+    }
+
+    this.dadosFiltrados = dados;
+    this.renderTabela();
+    this.renderKpis();
+  },
+
   atualizarDia() {
     const data = document.getElementById('moData')?.value;
     if (data) document.getElementById('moDia').value = Utils.diaSemana(data);
@@ -113,13 +181,13 @@ const MaoDeObra = {
   },
 
   async buscar() {
-    const func = document.getElementById('filtroFunc')?.value || '';
     const mes = document.getElementById('filtroMes')?.value || '';
     try {
       Utils.showLoading(true);
-      this.dados = await Api.getMaoDeObra({ funcionario: func, mes });
-      this.renderTabela();
-      this.renderKpis();
+      // Busca só por mês no backend; filtros de funcionário/semana são client-side
+      this.dados = await Api.getMaoDeObra({ mes });
+      this.atualizarSemanasSelect();
+      this.aplicarFiltros();
     } catch (e) {
       Utils.showToast('Erro ao carregar dados: ' + e.message, 'error');
       document.getElementById('tbodyMO').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Erro ao carregar. Verifique a conexão com o backend.</td></tr>`;
@@ -130,39 +198,42 @@ const MaoDeObra = {
 
   renderTabela() {
     const tbody = document.getElementById('tbodyMO');
-    document.getElementById('totalRegistros').textContent = this.dados.length;
-    if (!this.dados.length) {
+    const dados = this.dadosFiltrados;
+    document.getElementById('totalRegistros').textContent = dados.length;
+    if (!dados.length) {
       tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhum lançamento encontrado.</td></tr>';
       return;
     }
-    tbody.innerHTML = this.dados.map(r => {
-      const total = (parseFloat(r.valor) || 0) - (parseFloat(r.vale) || 0);
-      const cls = total >= 0 ? 'text-success' : 'text-danger';
-      return `<tr>
-        <td>${Utils.formatDate(r.data)}</td>
-        <td>${r.dia || ''}</td>
-        <td><span class="badge bg-primary">${r.funcionario}</span></td>
-        <td>${r.servico || '—'}</td>
-        <td class="text-end">${Utils.formatCurrency(r.valor)}</td>
-        <td class="text-end text-warning">${Utils.formatCurrency(r.vale)}</td>
-        <td class="text-end fw-semibold ${cls}">${Utils.formatCurrency(total)}</td>
-        <td class="text-center">
-          <button class="btn btn-outline-primary btn-sm me-1" onclick="MaoDeObra.editar('${r.id}')"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-outline-danger btn-sm" onclick="MaoDeObra.excluir('${r.id}')"><i class="bi bi-trash"></i></button>
-        </td>
-      </tr>`;
-    }).join('');
+    tbody.innerHTML = [...dados]
+      .sort((a, b) => a.data.localeCompare(b.data))
+      .map(r => {
+        const total = (parseFloat(r.valor) || 0) - (parseFloat(r.vale) || 0);
+        return `<tr>
+          <td>${Utils.formatDate(r.data)}</td>
+          <td>${r.dia || ''}</td>
+          <td><span class="badge bg-primary">${r.funcionario}</span></td>
+          <td>${r.servico || '—'}</td>
+          <td class="text-end">${Utils.formatCurrency(r.valor)}</td>
+          <td class="text-end text-warning">${Utils.formatCurrency(r.vale)}</td>
+          <td class="text-end fw-semibold ${total >= 0 ? 'text-success' : 'text-danger'}">${Utils.formatCurrency(total)}</td>
+          <td class="text-center">
+            <button class="btn btn-outline-primary btn-sm me-1" onclick="MaoDeObra.editar('${r.id}')"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-outline-danger btn-sm" onclick="MaoDeObra.excluir('${r.id}')"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('');
   },
 
   renderKpis() {
-    const total = this.dados.reduce((s, r) => s + (parseFloat(r.valor) || 0), 0);
-    const totalVale = this.dados.reduce((s, r) => s + (parseFloat(r.vale) || 0), 0);
+    const dados = this.dadosFiltrados;
+    const total = dados.reduce((s, r) => s + (parseFloat(r.valor) || 0), 0);
+    const totalVale = dados.reduce((s, r) => s + (parseFloat(r.vale) || 0), 0);
     const saldo = total - totalVale;
     const porFunc = CONFIG.funcionarios.map(f => {
-      const rows = this.dados.filter(r => r.funcionario === f);
+      const rows = dados.filter(r => r.funcionario === f);
       const s = rows.reduce((acc, r) => acc + (parseFloat(r.valor) || 0) - (parseFloat(r.vale) || 0), 0);
-      return { nome: f, saldo: s };
-    });
+      return { nome: f, saldo: s, temDados: rows.length > 0 };
+    }).filter(f => f.temDados);
     document.getElementById('moKpis').innerHTML = `
       <div class="col-sm-4">
         <div class="card bg-primary text-white border-0"><div class="card-body"><div class="small">Total Produzido</div><div class="fs-5 fw-bold">${Utils.formatCurrency(total)}</div></div></div>

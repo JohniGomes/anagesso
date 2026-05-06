@@ -12,8 +12,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Chart.js -->
+  <!-- Chart.js + DataLabels plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -108,7 +109,8 @@
       },
 
       navigate(page, el) {
-        event.preventDefault();
+        // Evita erro se chamado sem evento (ex: init direto)
+        if (typeof event !== 'undefined' && event?.preventDefault) event.preventDefault();
         document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.remove('active'));
         if (el) el.classList.add('active');
         const module = this.pages[page];
@@ -124,12 +126,17 @@
 
       init() {
         document.getElementById('badgeData').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+        // Registra plugin de datalabels globalmente
+        Chart.register(ChartDataLabels);
+        // Garante que o dashboard carrega ao abrir
         const firstLink = document.querySelector('#sidebar nav a[data-page="dashboard"]');
-        this.navigate('dashboard', firstLink);
+        if (firstLink) firstLink.classList.add('active');
+        Dashboard.render();
       }
     };
 
-    App.init();
+    // Aguarda DOM completo antes de iniciar
+    document.addEventListener('DOMContentLoaded', () => App.init());
   </script>
 </body>
 </html>
