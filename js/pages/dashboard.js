@@ -66,7 +66,7 @@ const Dashboard = {
                 <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6c757d;margin-bottom:4px">
                   <i class="bi bi-pie-chart-fill text-info me-1"></i>Obras por Fase
                 </div>
-                <div style="width:100%;max-width:180px">
+                <div style="width:100%;max-width:220px">
                   <canvas id="chartObras"></canvas>
                 </div>
               </div>
@@ -370,14 +370,23 @@ const Dashboard = {
       },
       options: {
         responsive: true,
+        layout: { padding: { bottom: 4 } },
         plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } },
+          legend: {
+            position: 'bottom',
+            labels: {
+              font: { size: 10 },
+              padding: 8,
+              boxWidth: 10,
+              boxHeight: 10,
+            },
+          },
           datalabels: {
             color: '#fff',
-            font: { weight: 'bold', size: 13 },
+            font: { weight: 'bold', size: 12 },
             formatter: (value) => {
               const pct = Math.round((value / total) * 100);
-              return `${value}\n(${pct}%)`;
+              return `${value}\n${pct}%`;
             },
             textAlign: 'center',
           }
