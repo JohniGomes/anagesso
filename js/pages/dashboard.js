@@ -47,32 +47,33 @@ const Dashboard = {
 
       <!-- Orçamentos + Gráfico (card unificado) + Tabela Obras -->
       <div class="row g-3">
+        <!-- Desktop: col única com flex row | Mobile: dois cards empilhados -->
         <div class="col-lg-5">
-          <div class="card border-0 shadow-sm h-100">
+
+          <!-- Card Orçamentos -->
+          <div class="card border-0 shadow-sm mb-3 mb-lg-0" id="cardOrcamentos">
             <div class="card-header fw-semibold">
-              <i class="bi bi-bar-chart-fill text-secondary me-1"></i>Visão Comercial
+              <i class="bi bi-file-earmark-text-fill text-warning me-1"></i>Orçamentos
             </div>
-            <div class="card-body p-0 d-flex" style="min-height:0">
-
-              <!-- Orçamentos — metade esquerda -->
-              <div class="d-flex flex-column justify-content-center px-3 py-3 border-end" style="flex:1;min-width:0" id="orcResumo">
-                <div class="d-flex justify-content-center py-2">
-                  <div class="spinner-border spinner-border-sm text-secondary"></div>
-                </div>
+            <div class="card-body" id="orcResumo">
+              <div class="d-flex justify-content-center py-2">
+                <div class="spinner-border spinner-border-sm text-secondary"></div>
               </div>
-
-              <!-- Gráfico — metade direita -->
-              <div class="d-flex flex-column align-items-center justify-content-center px-2 py-2" style="flex:1;min-width:0">
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6c757d;margin-bottom:4px">
-                  <i class="bi bi-pie-chart-fill text-info me-1"></i>Obras por Fase
-                </div>
-                <div style="width:100%;max-width:220px">
-                  <canvas id="chartObras"></canvas>
-                </div>
-              </div>
-
             </div>
           </div>
+
+          <!-- Card Obras por Fase -->
+          <div class="card border-0 shadow-sm">
+            <div class="card-header fw-semibold">
+              <i class="bi bi-pie-chart-fill text-info me-1"></i>Obras por Fase
+            </div>
+            <div class="card-body d-flex justify-content-center py-2">
+              <div style="width:100%;max-width:240px">
+                <canvas id="chartObras"></canvas>
+              </div>
+            </div>
+          </div>
+
         </div>
         <div class="col-lg-7">
           <div class="card border-0 shadow-sm h-100">
