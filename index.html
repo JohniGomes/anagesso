@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERP Anagesso</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-circle">A</div>
+      <h5>ANAGESSO</h5>
+      <small>Sistema de Gestão</small>
+    </div>
+
+    <nav>
+      <div class="nav-section-label">Principal</div>
+      <a href="#" data-page="dashboard" onclick="App.navigate('dashboard',this)">
+        <i class="bi bi-speedometer2"></i> Dashboard
+      </a>
+
+      <div class="nav-section-label">Operacional</div>
+      <a href="#" data-page="mao-de-obra" onclick="App.navigate('mao-de-obra',this)">
+        <i class="bi bi-people-fill"></i> Mão de Obra
+      </a>
+      <a href="#" data-page="obras" onclick="App.navigate('obras',this)">
+        <i class="bi bi-building-fill-check"></i> Obras
+      </a>
+
+      <div class="nav-section-label">Comercial</div>
+      <a href="#" data-page="orcamentos" onclick="App.navigate('orcamentos',this)">
+        <i class="bi bi-file-earmark-text-fill"></i> Orçamentos
+      </a>
+      <a href="#" data-page="clientes" onclick="App.navigate('clientes',this)">
+        <i class="bi bi-person-lines-fill"></i> Clientes
+      </a>
+
+      <div class="nav-section-label">Cadastros</div>
+      <a href="#" data-page="base-itens" onclick="App.navigate('base-itens',this)">
+        <i class="bi bi-box-seam-fill"></i> Base de Itens
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      &copy; 2026 Anagesso
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <div id="main">
+    <header id="topbar">
+      <button id="menuToggle" class="btn btn-sm btn-outline-secondary" onclick="App.toggleSidebar()">
+        <i class="bi bi-list"></i>
+      </button>
+      <h4 id="pageTitle">Dashboard</h4>
+      <span class="badge bg-warning text-dark ms-auto" id="badgeData"></span>
+    </header>
+
+    <!-- CONTENT -->
+    <main id="content"></main>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loadingOverlay">
+    <div class="spinner-border text-warning" role="status">
+      <span class="visually-hidden">Carregando...</span>
+    </div>
+  </div>
+
+  <!-- TOASTS -->
+  <div id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/pages/dashboard.js"></script>
+  <script src="js/pages/mao-de-obra.js"></script>
+  <script src="js/pages/obras.js"></script>
+  <script src="js/pages/orcamentos.js"></script>
+  <script src="js/pages/base-itens.js"></script>
+  <script src="js/pages/clientes.js"></script>
+
+  <script>
+    const App = {
+      pages: {
+        'dashboard': Dashboard,
+        'mao-de-obra': MaoDeObra,
+        'obras': Obras,
+        'orcamentos': Orcamentos,
+        'base-itens': BaseItens,
+        'clientes': Clientes,
+      },
+
+      navigate(page, el) {
+        event.preventDefault();
+        document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.remove('active'));
+        if (el) el.classList.add('active');
+        const module = this.pages[page];
+        if (module) module.render();
+        if (window.innerWidth <= 768) {
+          document.getElementById('sidebar').classList.remove('open');
+        }
+      },
+
+      toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+      },
+
+      init() {
+        document.getElementById('badgeData').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+        const firstLink = document.querySelector('#sidebar nav a[data-page="dashboard"]');
+        this.navigate('dashboard', firstLink);
+      }
+    };
+
+    App.init();
+  </script>
+</body>
+</html>
