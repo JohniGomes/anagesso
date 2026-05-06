@@ -52,22 +52,25 @@ const Dashboard = {
             <div class="card-header fw-semibold">
               <i class="bi bi-bar-chart-fill text-secondary me-1"></i>Visão Comercial
             </div>
-            <div class="card-body p-0">
-              <!-- Orçamentos resumo -->
-              <div class="px-3 pt-3 pb-2 border-bottom" id="orcResumo">
+            <div class="card-body p-0 d-flex" style="min-height:0">
+
+              <!-- Orçamentos — metade esquerda -->
+              <div class="d-flex flex-column justify-content-center px-3 py-3 border-end" style="flex:1;min-width:0" id="orcResumo">
                 <div class="d-flex justify-content-center py-2">
                   <div class="spinner-border spinner-border-sm text-secondary"></div>
                 </div>
               </div>
-              <!-- Gráfico obras por fase -->
-              <div class="px-3 pb-1 pt-2">
-                <div class="text-muted fw-semibold mb-1" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">
+
+              <!-- Gráfico — metade direita -->
+              <div class="d-flex flex-column align-items-center justify-content-center px-2 py-2" style="flex:1;min-width:0">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6c757d;margin-bottom:4px">
                   <i class="bi bi-pie-chart-fill text-info me-1"></i>Obras por Fase
                 </div>
-                <div style="max-height:180px">
+                <div style="width:100%;max-width:180px">
                   <canvas id="chartObras"></canvas>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
