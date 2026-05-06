@@ -1,5 +1,7 @@
 const Obras = {
   dados: [],
+  itensBase: [],
+  itensSelecionados: [],
 
   async render() {
     document.getElementById('pageTitle').textContent = 'Fechamento de Obras';
@@ -22,8 +24,8 @@ const Obras = {
               <thead class="table-dark">
                 <tr>
                   <th>Obra</th><th>Início</th><th>Fase</th>
-                  <th class="text-end">Orçamento</th><th class="text-end">Fechado</th>
-                  <th class="text-end">Pago</th><th class="text-end">A Receber</th>
+                  <th class="text-end">Orçamento</th><th class="text-end">Pago</th>
+                  <th class="text-end">A Receber</th><th class="text-end">Custo</th>
                   <th class="text-end">Lucro</th><th class="text-center">Ações</th>
                 </tr>
               </thead>
@@ -35,16 +37,22 @@ const Obras = {
 
       <!-- Modal Obra -->
       <div class="modal fade" id="modalObra" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
           <div class="modal-content">
-            <div class="modal-header bg-dark text-white"><h5 class="modal-title">Obra</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header bg-dark text-white">
+              <h5 class="modal-title"><i class="bi bi-building me-2"></i>Obra</h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
             <div class="modal-body">
               <form id="formObra">
                 <input type="hidden" id="obraId">
-                <div class="row g-3">
+
+                <!-- Identificação -->
+                <h6 class="fw-semibold text-primary mb-3"><i class="bi bi-info-circle me-1"></i>Identificação</h6>
+                <div class="row g-3 mb-4">
                   <div class="col-12">
                     <label class="form-label">Nome da Obra *</label>
-                    <input type="text" class="form-control" id="obraNome" required placeholder="Ex: OBRA IGREJA PE MAX">
+                    <input type="text" class="form-control" id="obraNome" required placeholder="Ex: OBRA CLIENTE BAIRRO">
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Data de Início</label>
@@ -62,50 +70,132 @@ const Obras = {
                       <option value="EXECUTADO">EXECUTADO</option>
                     </select>
                   </div>
-                  <div class="col-12"><hr class="my-1"><p class="text-muted small mb-2">Financeiro</p></div>
+                </div>
+
+                <!-- Valores do Contrato -->
+                <h6 class="fw-semibold text-primary mb-3"><i class="bi bi-cash-stack me-1"></i>Valores do Contrato</h6>
+                <div class="row g-3 mb-4">
                   <div class="col-md-4">
                     <label class="form-label">Valor Orçamento</label>
-                    <input type="number" class="form-control" id="obraOrcamento" step="0.01" min="0" value="0" oninput="Obras.calcLucro()">
+                    <div class="input-group">
+                      <span class="input-group-text">R$</span>
+                      <input type="number" class="form-control" id="obraOrcamento" step="0.01" min="0" value="0" oninput="Obras.recalcular()">
+                    </div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Valor Fechado</label>
-                    <input type="number" class="form-control" id="obraFechado" step="0.01" min="0" value="0" oninput="Obras.calcLucro()">
+                    <div class="input-group">
+                      <span class="input-group-text">R$</span>
+                      <input type="number" class="form-control" id="obraFechado" step="0.01" min="0" value="0" oninput="Obras.recalcular()">
+                    </div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Valores Pago</label>
-                    <input type="number" class="form-control" id="obraPago" step="0.01" min="0" value="0" oninput="Obras.calcLucro()">
+                    <div class="input-group">
+                      <span class="input-group-text">R$</span>
+                      <input type="number" class="form-control" id="obraPago" step="0.01" min="0" value="0" oninput="Obras.recalcular()">
+                    </div>
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label">A Receber</label>
-                    <input type="text" class="form-control" id="obraReceber" readonly>
-                  </div>
-                  <div class="col-12"><hr class="my-1"><p class="text-muted small mb-2">Custos</p></div>
-                  <div class="col-md-4">
-                    <label class="form-label">Variáveis</label>
-                    <input type="number" class="form-control" id="obraVariaveis" step="0.01" min="0" value="0" oninput="Obras.calcLucro()">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Material</label>
-                    <input type="number" class="form-control" id="obraMaterial" step="0.01" min="0" value="0" oninput="Obras.calcLucro()">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Mão de Obra</label>
-                    <input type="number" class="form-control" id="obraMO" step="0.01" min="0" value="0" oninput="Obras.calcLucro()">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Custo Total da Obra</label>
-                    <input type="text" class="form-control fw-bold" id="obraCusto" readonly>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Lucro Anagesso</label>
-                    <input type="text" class="form-control fw-bold text-success" id="obraLucro" readonly>
+                    <label class="form-label text-muted">A Receber (auto)</label>
+                    <input type="text" class="form-control bg-light fw-semibold text-warning" id="obraReceber" readonly>
                   </div>
                 </div>
+
+                <!-- Itens / Material -->
+                <h6 class="fw-semibold text-primary mb-3"><i class="bi bi-box-seam me-1"></i>Itens de Material</h6>
+                <div class="row g-2 mb-3 align-items-end">
+                  <div class="col-md-5">
+                    <label class="form-label small">Produto</label>
+                    <select class="form-select form-select-sm" id="obraSelectItem">
+                      <option value="">Selecione um item...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label small">Qtd</label>
+                    <input type="number" class="form-control form-control-sm" id="obraItemQtd" value="1" min="0.01" step="0.01">
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label small">Preço Unit.</label>
+                    <input type="number" class="form-control form-control-sm" id="obraItemPreco" step="0.01" min="0">
+                  </div>
+                  <div class="col-md-3">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="Obras.adicionarItem()">
+                      <i class="bi bi-plus-circle me-1"></i>Adicionar
+                    </button>
+                  </div>
+                </div>
+                <div class="table-responsive mb-1">
+                  <table class="table table-sm align-middle border rounded">
+                    <thead class="table-light">
+                      <tr><th>Produto</th><th class="text-end">Qtd</th><th class="text-end">Unit.</th><th class="text-end">Total</th><th></th></tr>
+                    </thead>
+                    <tbody id="tbodyObraItens">
+                      <tr><td colspan="5" class="text-muted text-center py-2 small">Nenhum item adicionado.</td></tr>
+                    </tbody>
+                    <tfoot>
+                      <tr class="fw-bold table-secondary">
+                        <td colspan="3" class="text-end">Total Material:</td>
+                        <td class="text-end text-primary" id="obraTotalMaterial">R$ 0,00</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <!-- Custos -->
+                <h6 class="fw-semibold text-primary mb-3 mt-3"><i class="bi bi-receipt me-1"></i>Custos da Obra</h6>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Mão de Obra (R$)</label>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-people"></i></span>
+                      <input type="number" class="form-control" id="obraMO" step="0.01" min="0" value="0" oninput="Obras.recalcular()">
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Material (R$) <span class="badge bg-secondary ms-1 small">calculado</span></label>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-box-seam"></i></span>
+                      <input type="number" class="form-control bg-light" id="obraMaterial" step="0.01" min="0" value="0" oninput="Obras.recalcular()">
+                    </div>
+                    <div class="form-text">Preenchido automaticamente pelos itens acima.</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Variáveis (R$)</label>
+                    <div class="input-group">
+                      <span class="input-group-text"><i class="bi bi-sliders"></i></span>
+                      <input type="number" class="form-control" id="obraVariaveis" step="0.01" min="0" value="0" oninput="Obras.recalcular()">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Resultado -->
+                <div class="card border-0 bg-light rounded-3 p-3">
+                  <div class="row g-3 text-center">
+                    <div class="col-4">
+                      <div class="text-muted small">Custo Total</div>
+                      <div class="fw-bold fs-6" id="obraCusto">R$ 0,00</div>
+                    </div>
+                    <div class="col-4">
+                      <div class="text-muted small">Orçamento</div>
+                      <div class="fw-bold fs-6 text-primary" id="obraOrcDisplay">R$ 0,00</div>
+                    </div>
+                    <div class="col-4">
+                      <div class="text-muted small fw-semibold">Lucro Anagesso</div>
+                      <div class="fw-bold fs-5" id="obraLucro">R$ 0,00</div>
+                    </div>
+                  </div>
+                  <div class="mt-2 small text-muted text-center">
+                    Lucro = Orçamento − Mão de Obra − Material − Variáveis
+                  </div>
+                </div>
+
               </form>
             </div>
             <div class="modal-footer">
               <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button class="btn btn-primary" onclick="Obras.salvar()"><i class="bi bi-save me-1"></i>Salvar</button>
+              <button class="btn btn-primary" onclick="Obras.salvar()"><i class="bi bi-save me-1"></i>Salvar Obra</button>
             </div>
           </div>
         </div>
@@ -114,24 +204,10 @@ const Obras = {
     await this.carregar();
   },
 
-  calcLucro() {
-    const fechado = parseFloat(document.getElementById('obraFechado')?.value) || 0;
-    const pago = parseFloat(document.getElementById('obraPago')?.value) || 0;
-    const variaveis = parseFloat(document.getElementById('obraVariaveis')?.value) || 0;
-    const material = parseFloat(document.getElementById('obraMaterial')?.value) || 0;
-    const mo = parseFloat(document.getElementById('obraMO')?.value) || 0;
-    const custo = variaveis + material + mo;
-    const lucro = fechado - custo;
-    const receber = fechado - pago;
-    document.getElementById('obraCusto').value = Utils.formatCurrency(custo);
-    document.getElementById('obraLucro').value = Utils.formatCurrency(lucro);
-    document.getElementById('obraReceber').value = Utils.formatCurrency(receber);
-  },
-
   async carregar() {
     try {
       Utils.showLoading(true);
-      this.dados = await Api.getObras();
+      [this.dados, this.itensBase] = await Promise.all([Api.getObras(), Api.getItens()]);
       this.renderTabela(this.dados);
       this.renderKpis();
     } catch (e) {
@@ -144,11 +220,10 @@ const Obras = {
   filtrar() {
     const busca = document.getElementById('buscaObra')?.value.toLowerCase() || '';
     const fase = document.getElementById('filtroFase')?.value || '';
-    const filtrado = this.dados.filter(o =>
+    this.renderTabela(this.dados.filter(o =>
       (!busca || (o.nome || '').toLowerCase().includes(busca)) &&
       (!fase || o.fase === fase)
-    );
-    this.renderTabela(filtrado);
+    ));
   },
 
   renderTabela(dados) {
@@ -157,28 +232,30 @@ const Obras = {
       tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Nenhuma obra encontrada.</td></tr>';
       return;
     }
-    tbody.innerHTML = dados.map(o => `
-      <tr>
+    tbody.innerHTML = dados.map(o => {
+      const lucro = parseFloat(o.lucro) || 0;
+      return `<tr>
         <td class="fw-semibold">${o.nome}</td>
-        <td>${Utils.formatDate(o.dtInicio)}</td>
+        <td class="small">${Utils.formatDate(o.dtInicio)}</td>
         <td><span class="badge ${o.fase === 'EXECUTADO' ? 'bg-success' : o.fase === 'ANDAMENTO' ? 'bg-warning text-dark' : 'bg-info'}">${o.fase || '—'}</span></td>
         <td class="text-end">${Utils.formatCurrency(o.valorOrcamento)}</td>
-        <td class="text-end">${Utils.formatCurrency(o.valorFechado)}</td>
         <td class="text-end text-success">${Utils.formatCurrency(o.valorPago)}</td>
         <td class="text-end text-warning">${Utils.formatCurrency(o.valorReceber)}</td>
-        <td class="text-end fw-bold ${parseFloat(o.lucro) >= 0 ? 'text-success' : 'text-danger'}">${Utils.formatCurrency(o.lucro)}</td>
+        <td class="text-end text-muted">${Utils.formatCurrency(o.custoObra)}</td>
+        <td class="text-end fw-bold ${lucro >= 0 ? 'text-success' : 'text-danger'}">${Utils.formatCurrency(lucro)}</td>
         <td class="text-center">
           <button class="btn btn-outline-primary btn-sm me-1" onclick="Obras.editar('${o.id}')"><i class="bi bi-pencil"></i></button>
           <button class="btn btn-outline-danger btn-sm" onclick="Obras.excluir('${o.id}')"><i class="bi bi-trash"></i></button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   },
 
   renderKpis() {
     const totalOrcamento = this.dados.reduce((s, o) => s + (parseFloat(o.valorOrcamento) || 0), 0);
-    const totalPago = this.dados.reduce((s, o) => s + (parseFloat(o.valorPago) || 0), 0);
-    const totalReceber = this.dados.reduce((s, o) => s + (parseFloat(o.valorReceber) || 0), 0);
-    const totalLucro = this.dados.reduce((s, o) => s + (parseFloat(o.lucro) || 0), 0);
+    const totalPago      = this.dados.reduce((s, o) => s + (parseFloat(o.valorPago)      || 0), 0);
+    const totalReceber   = this.dados.reduce((s, o) => s + (parseFloat(o.valorReceber)   || 0), 0);
+    const totalLucro     = this.dados.reduce((s, o) => s + (parseFloat(o.lucro)          || 0), 0);
     document.getElementById('obrasKpis').innerHTML = `
       <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Total Orçado</div><div class="fw-bold">${Utils.formatCurrency(totalOrcamento)}</div></div></div></div>
       <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Recebido</div><div class="fw-bold text-success">${Utils.formatCurrency(totalPago)}</div></div></div></div>
@@ -186,27 +263,105 @@ const Obras = {
       <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Lucro Total</div><div class="fw-bold text-primary">${Utils.formatCurrency(totalLucro)}</div></div></div></div>`;
   },
 
-  abrirModal(dados = null) {
-    const fields = ['obraId', 'obraNome', 'obraInicio', 'obraEntrega', 'obraFase', 'obraOrcamento', 'obraFechado', 'obraPago', 'obraVariaveis', 'obraMaterial', 'obraMO'];
-    const vals = ['', '', '', '', 'ANDAMENTO', 0, 0, 0, 0, 0, 0];
-    fields.forEach((f, i) => {
-      const el = document.getElementById(f);
-      if (el) el.value = dados ? (dados[f.replace('obra', '').toLowerCase()] ?? vals[i]) : vals[i];
+  preencherSelectItens() {
+    const sel = document.getElementById('obraSelectItem');
+    sel.innerHTML = '<option value="">Selecione um item...</option>' +
+      this.itensBase.map(i => `<option value="${i.id}" data-preco="${i.preco}" data-produto="${i.produto}">${i.produto} — ${Utils.formatCurrency(i.preco)}</option>`).join('');
+    sel.onchange = () => {
+      const opt = sel.selectedOptions[0];
+      if (opt?.dataset.preco) document.getElementById('obraItemPreco').value = opt.dataset.preco;
+    };
+  },
+
+  adicionarItem() {
+    const sel = document.getElementById('obraSelectItem');
+    const opt = sel.selectedOptions[0];
+    if (!opt?.value) { Utils.showToast('Selecione um item.', 'warning'); return; }
+    const qtd    = parseFloat(document.getElementById('obraItemQtd').value)  || 1;
+    const preco  = parseFloat(document.getElementById('obraItemPreco').value) || 0;
+    this.itensSelecionados.push({
+      id: opt.value, produto: opt.dataset.produto, qtd, precoUnit: preco, total: qtd * preco
     });
-    if (dados) {
-      document.getElementById('obraId').value = dados.id || '';
-      document.getElementById('obraNome').value = dados.nome || '';
-      document.getElementById('obraInicio').value = dados.dtInicio || '';
-      document.getElementById('obraEntrega').value = dados.dtEntrega || '';
-      document.getElementById('obraFase').value = dados.fase || 'ANDAMENTO';
-      document.getElementById('obraOrcamento').value = dados.valorOrcamento || 0;
-      document.getElementById('obraFechado').value = dados.valorFechado || 0;
-      document.getElementById('obraPago').value = dados.valorPago || 0;
-      document.getElementById('obraVariaveis').value = dados.variaveis || 0;
-      document.getElementById('obraMaterial').value = dados.material || 0;
-      document.getElementById('obraMO').value = dados.maoDeObra || 0;
+    sel.value = '';
+    document.getElementById('obraItemQtd').value  = 1;
+    document.getElementById('obraItemPreco').value = '';
+    this.renderItensModal();
+  },
+
+  removerItem(idx) {
+    this.itensSelecionados.splice(idx, 1);
+    this.renderItensModal();
+  },
+
+  renderItensModal() {
+    const tbody = document.getElementById('tbodyObraItens');
+    const totalMaterial = this.itensSelecionados.reduce((s, i) => s + i.total, 0);
+
+    if (!this.itensSelecionados.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-2 small">Nenhum item adicionado.</td></tr>';
+    } else {
+      tbody.innerHTML = this.itensSelecionados.map((item, idx) => `
+        <tr>
+          <td class="small">${item.produto}</td>
+          <td class="text-end small">${item.qtd}</td>
+          <td class="text-end small">${Utils.formatCurrency(item.precoUnit)}</td>
+          <td class="text-end fw-semibold">${Utils.formatCurrency(item.total)}</td>
+          <td class="text-center"><button class="btn btn-link text-danger p-0 btn-sm" onclick="Obras.removerItem(${idx})"><i class="bi bi-x-circle"></i></button></td>
+        </tr>`).join('');
     }
-    this.calcLucro();
+
+    document.getElementById('obraTotalMaterial').textContent = Utils.formatCurrency(totalMaterial);
+    // Atualiza campo de material automaticamente
+    document.getElementById('obraMaterial').value = totalMaterial.toFixed(2);
+    this.recalcular();
+  },
+
+  recalcular() {
+    const orcamento  = parseFloat(document.getElementById('obraOrcamento')?.value) || 0;
+    const fechado    = parseFloat(document.getElementById('obraFechado')?.value)    || 0;
+    const pago       = parseFloat(document.getElementById('obraPago')?.value)       || 0;
+    const mo         = parseFloat(document.getElementById('obraMO')?.value)         || 0;
+    const material   = parseFloat(document.getElementById('obraMaterial')?.value)   || 0;
+    const variaveis  = parseFloat(document.getElementById('obraVariaveis')?.value)  || 0;
+
+    const receber = fechado - pago;
+    const custo   = mo + material + variaveis;
+    const lucro   = orcamento - mo - material - variaveis;
+
+    if (document.getElementById('obraReceber'))     document.getElementById('obraReceber').value     = Utils.formatCurrency(receber);
+    if (document.getElementById('obraCusto'))       document.getElementById('obraCusto').textContent = Utils.formatCurrency(custo);
+    if (document.getElementById('obraOrcDisplay'))  document.getElementById('obraOrcDisplay').textContent = Utils.formatCurrency(orcamento);
+    if (document.getElementById('obraLucro')) {
+      const el = document.getElementById('obraLucro');
+      el.textContent = Utils.formatCurrency(lucro);
+      el.className   = 'fw-bold fs-5 ' + (lucro >= 0 ? 'text-success' : 'text-danger');
+    }
+  },
+
+  abrirModal(dados = null) {
+    this.itensSelecionados = [];
+    if (dados?.itens) {
+      try { this.itensSelecionados = JSON.parse(dados.itens); } catch (_) {}
+    }
+
+    document.getElementById('obraId').value        = dados?.id             || '';
+    document.getElementById('obraNome').value       = dados?.nome          || '';
+    document.getElementById('obraInicio').value     = dados?.dtInicio      || '';
+    document.getElementById('obraEntrega').value    = dados?.dtEntrega     || '';
+    document.getElementById('obraFase').value       = dados?.fase          || 'ANDAMENTO';
+    document.getElementById('obraOrcamento').value  = dados?.valorOrcamento|| 0;
+    document.getElementById('obraFechado').value    = dados?.valorFechado  || 0;
+    document.getElementById('obraPago').value       = dados?.valorPago     || 0;
+    document.getElementById('obraMO').value         = dados?.maoDeObra     || 0;
+    document.getElementById('obraVariaveis').value  = dados?.variaveis     || 0;
+
+    this.preencherSelectItens();
+    this.renderItensModal();          // também seta material e recalcula
+    if (!this.itensSelecionados.length) {
+      document.getElementById('obraMaterial').value = dados?.material || 0;
+      this.recalcular();
+    }
+
     new bootstrap.Modal(document.getElementById('modalObra')).show();
   },
 
@@ -218,25 +373,34 @@ const Obras = {
   async salvar() {
     const form = document.getElementById('formObra');
     if (!form.reportValidity()) return;
-    const fechado = parseFloat(document.getElementById('obraFechado').value) || 0;
-    const pago = parseFloat(document.getElementById('obraPago').value) || 0;
+
+    const orcamento = parseFloat(document.getElementById('obraOrcamento').value) || 0;
+    const fechado   = parseFloat(document.getElementById('obraFechado').value)   || 0;
+    const pago      = parseFloat(document.getElementById('obraPago').value)      || 0;
+    const mo        = parseFloat(document.getElementById('obraMO').value)        || 0;
+    const material  = parseFloat(document.getElementById('obraMaterial').value)  || 0;
     const variaveis = parseFloat(document.getElementById('obraVariaveis').value) || 0;
-    const material = parseFloat(document.getElementById('obraMaterial').value) || 0;
-    const mo = parseFloat(document.getElementById('obraMO').value) || 0;
+    const custo     = mo + material + variaveis;
+    const lucro     = orcamento - mo - material - variaveis;
+
     const payload = {
-      id: document.getElementById('obraId').value,
-      nome: document.getElementById('obraNome').value,
-      dtInicio: document.getElementById('obraInicio').value,
-      dtEntrega: document.getElementById('obraEntrega').value,
-      fase: document.getElementById('obraFase').value,
-      valorOrcamento: document.getElementById('obraOrcamento').value,
-      valorFechado: fechado,
-      valorPago: pago,
-      valorReceber: fechado - pago,
-      variaveis, material, maoDeObra: mo,
-      custoObra: variaveis + material + mo,
-      lucro: fechado - (variaveis + material + mo),
+      id:             document.getElementById('obraId').value,
+      nome:           document.getElementById('obraNome').value,
+      dtInicio:       document.getElementById('obraInicio').value,
+      dtEntrega:      document.getElementById('obraEntrega').value,
+      fase:           document.getElementById('obraFase').value,
+      valorOrcamento: orcamento,
+      valorFechado:   fechado,
+      valorPago:      pago,
+      valorReceber:   fechado - pago,
+      variaveis,
+      material,
+      maoDeObra:      mo,
+      custoObra:      custo,
+      lucro,
+      itens:          JSON.stringify(this.itensSelecionados),
     };
+
     try {
       Utils.showLoading(true);
       await Api.saveObra(payload);
