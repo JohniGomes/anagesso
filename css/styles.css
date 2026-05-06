@@ -35,19 +35,13 @@ body {
   text-align: center;
 }
 
-#sidebar .sidebar-brand .logo-circle {
-  width: 52px; height: 52px;
-  background: var(--accent);
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 800;
-  color: var(--primary);
-  margin-bottom: 6px;
-}
-
-#sidebar .sidebar-brand h5 {
-  margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 1px;
+.sidebar-logo {
+  width: 100%;
+  max-width: 160px;
+  max-height: 80px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 6px;
 }
 
 #sidebar .sidebar-brand small {
