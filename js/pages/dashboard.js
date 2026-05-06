@@ -13,9 +13,12 @@ const Dashboard = {
         ${[1,2,3,4].map(() => `
           <div class="col-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
-              <div class="card-body placeholder-glow">
-                <span class="placeholder col-8 mb-2 d-block rounded"></span>
-                <span class="placeholder col-5 rounded"></span>
+              <div class="card-body d-flex align-items-center gap-2 placeholder-glow">
+                <div class="kpi-icon rounded-3 bg-secondary bg-opacity-10" style="width:36px;height:36px"></div>
+                <div style="min-width:0;flex:1">
+                  <span class="placeholder col-7 d-block rounded mb-1" style="height:10px"></span>
+                  <span class="placeholder col-10 d-block rounded" style="height:14px"></span>
+                </div>
               </div>
             </div>
           </div>`).join('')}
@@ -42,31 +45,33 @@ const Dashboard = {
         </div>
       </div>
 
-      <!-- Orçamentos + Gráfico + Tabela Obras -->
+      <!-- Orçamentos + Gráfico (card unificado) + Tabela Obras -->
       <div class="row g-3">
-        <div class="col-lg-4">
+        <div class="col-lg-5">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-header fw-semibold">
-              <i class="bi bi-file-earmark-text-fill text-warning me-1"></i>Orçamentos
+              <i class="bi bi-bar-chart-fill text-secondary me-1"></i>Visão Comercial
             </div>
-            <div class="card-body" id="orcResumo">
-              <div class="d-flex justify-content-center py-3">
-                <div class="spinner-border spinner-border-sm text-secondary"></div>
+            <div class="card-body p-0">
+              <!-- Orçamentos resumo -->
+              <div class="px-3 pt-3 pb-2 border-bottom" id="orcResumo">
+                <div class="d-flex justify-content-center py-2">
+                  <div class="spinner-border spinner-border-sm text-secondary"></div>
+                </div>
+              </div>
+              <!-- Gráfico obras por fase -->
+              <div class="px-3 pb-1 pt-2">
+                <div class="text-muted fw-semibold mb-1" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">
+                  <i class="bi bi-pie-chart-fill text-info me-1"></i>Obras por Fase
+                </div>
+                <div style="max-height:180px">
+                  <canvas id="chartObras"></canvas>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div class="col-lg-4">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-header fw-semibold">
-              <i class="bi bi-pie-chart-fill text-info me-1"></i>Obras por Fase
-            </div>
-            <div class="card-body d-flex align-items-center justify-content-center" style="min-height:220px">
-              <canvas id="chartObras"></canvas>
-            </div>
-          </div>
-        </div>
-        <div class="col-lg-4">
+        <div class="col-lg-7">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-header fw-semibold">
               <i class="bi bi-building-fill text-success me-1"></i>Últimas Obras
@@ -272,13 +277,13 @@ const Dashboard = {
     document.getElementById('kpiCards').innerHTML = kpis.map(k => `
       <div class="col-6 col-xl-3">
         <div class="card kpi-card border-0 shadow-sm h-100">
-          <div class="card-body d-flex align-items-center gap-3">
-            <div class="kpi-icon bg-${k.color} bg-opacity-10 text-${k.color} rounded-3 p-3">
-              <i class="bi ${k.icon} fs-4"></i>
+          <div class="card-body d-flex align-items-center gap-2">
+            <div class="kpi-icon bg-${k.color} bg-opacity-10 text-${k.color} rounded-3 p-2">
+              <i class="bi ${k.icon} fs-5"></i>
             </div>
-            <div>
-              <div class="text-muted small">${k.label}</div>
-              <div class="fw-bold fs-5">${k.value}</div>
+            <div style="min-width:0">
+              <div class="kpi-label">${k.label}</div>
+              <div class="kpi-value">${k.value}</div>
             </div>
           </div>
         </div>
@@ -288,31 +293,31 @@ const Dashboard = {
   renderOrc(orc) {
     const pct = orc.total > 0 ? Math.round((orc.aprovados / orc.total) * 100) : 0;
     document.getElementById('orcResumo').innerHTML = `
-      <div class="row g-3 mb-3">
-        <div class="col-4 text-center">
-          <div class="fs-3 fw-bold text-primary">${orc.total || 0}</div>
-          <div class="text-muted small">Total</div>
+      <div class="d-flex gap-3 align-items-center mb-2">
+        <div class="text-center px-2">
+          <div class="fw-bold text-primary" style="font-size:1.2rem">${orc.total || 0}</div>
+          <div style="font-size:10px;color:#6c757d">Total</div>
         </div>
-        <div class="col-4 text-center">
-          <div class="fs-3 fw-bold text-success">${orc.aprovados || 0}</div>
-          <div class="text-muted small">Aprovados</div>
+        <div class="text-center px-2">
+          <div class="fw-bold text-success" style="font-size:1.2rem">${orc.aprovados || 0}</div>
+          <div style="font-size:10px;color:#6c757d">Aprovados</div>
         </div>
-        <div class="col-4 text-center">
-          <div class="fs-3 fw-bold text-warning">${orc.aguardando || 0}</div>
-          <div class="text-muted small">Aguardando</div>
+        <div class="text-center px-2">
+          <div class="fw-bold text-warning" style="font-size:1.2rem">${orc.aguardando || 0}</div>
+          <div style="font-size:10px;color:#6c757d">Aguardando</div>
+        </div>
+        <div class="ms-auto text-end">
+          <div style="font-size:10px;color:#6c757d">Valor orçado</div>
+          <div class="fw-bold text-primary" style="font-size:0.9rem">${Utils.formatCurrency(orc.valorTotal)}</div>
         </div>
       </div>
-      <div class="mb-2">
-        <div class="d-flex justify-content-between small text-muted mb-1">
+      <div>
+        <div class="d-flex justify-content-between mb-1" style="font-size:10px;color:#6c757d">
           <span>Taxa de aprovação</span><span>${pct}%</span>
         </div>
-        <div class="progress" style="height:8px">
+        <div class="progress" style="height:6px">
           <div class="progress-bar bg-success" style="width:${pct}%"></div>
         </div>
-      </div>
-      <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-        <span class="text-muted small">Valor total orçado</span>
-        <span class="fw-bold text-primary">${Utils.formatCurrency(orc.valorTotal)}</span>
       </div>`;
   },
 
