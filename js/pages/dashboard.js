@@ -254,17 +254,17 @@ const Dashboard = {
 
     document.getElementById('moResumo').innerHTML = `
       <div class="row g-0 border-bottom text-center">
-        <div class="col-4 p-3 border-end">
-          <div class="text-muted small">Produzido ${tituloSemana}</div>
-          <div class="fw-bold text-primary fs-6">${Utils.formatCurrency(totalValor)}</div>
+        <div class="col-4 p-2 border-end">
+          <div class="text-muted" style="font-size:10px">Produzido ${tituloSemana}</div>
+          <div class="fw-bold text-primary mo-valor">${Utils.formatCurrency(totalValor)}</div>
         </div>
-        <div class="col-4 p-3 border-end">
-          <div class="text-muted small">Vales</div>
-          <div class="fw-bold text-warning fs-6">${Utils.formatCurrency(totalVale)}</div>
+        <div class="col-4 p-2 border-end">
+          <div class="text-muted" style="font-size:10px">Vales</div>
+          <div class="fw-bold text-warning mo-valor">${Utils.formatCurrency(totalVale)}</div>
         </div>
-        <div class="col-4 p-3">
-          <div class="text-muted small">Saldo a Pagar</div>
-          <div class="fw-bold fs-6 ${saldo >= 0 ? 'text-success' : 'text-danger'}">${Utils.formatCurrency(saldo)}</div>
+        <div class="col-4 p-2">
+          <div class="text-muted" style="font-size:10px">Saldo a Pagar</div>
+          <div class="fw-bold mo-valor ${saldo >= 0 ? 'text-success' : 'text-danger'}">${Utils.formatCurrency(saldo)}</div>
         </div>
       </div>
       ${detalhe}`;

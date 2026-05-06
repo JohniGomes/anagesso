@@ -132,9 +132,25 @@ body {
 .kpi-card:hover { transform: translateY(-2px); }
 .kpi-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
-/* KPI values — menores no geral, controlado por breakpoint */
-.kpi-card .kpi-value { font-size: 1rem; font-weight: 700; line-height: 1.2; }
-.kpi-card .kpi-label { font-size: var(--fs-xs); color: #6c757d; }
+/* KPI values */
+.kpi-card .kpi-value {
+  font-size: clamp(0.72rem, 2vw, 1rem);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpi-card .kpi-label { font-size: var(--fs-xs); color: #6c757d; white-space: nowrap; }
+
+/* MO resumo valores — nunca quebram linha */
+.mo-valor {
+  font-size: clamp(0.7rem, 2.2vw, 0.95rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
 
 /* ── TABLES (global, todos os módulos) ────────────────────── */
 .table {
@@ -203,16 +219,16 @@ body {
   #menuToggle { display: flex !important; }
   #content { padding: 12px; }
 
-  /* KPI cards no mobile: icone menor, valor compacto */
-  .kpi-card .card-body { padding: 10px 12px; gap: 10px !important; }
-  .kpi-icon { width: 36px; height: 36px; padding: 8px !important; }
-  .kpi-icon i { font-size: 16px !important; }
-  .kpi-card .kpi-value { font-size: 0.85rem; }
-  .kpi-card .kpi-label { font-size: 10px; }
+  /* KPI cards no mobile */
+  .kpi-card .card-body { padding: 8px 10px; gap: 8px !important; }
+  .kpi-icon { width: 32px; height: 32px; padding: 6px !important; flex-shrink: 0; }
+  .kpi-icon i { font-size: 14px !important; }
+  .kpi-card .kpi-value { font-size: 0.72rem; }
+  .kpi-card .kpi-label { font-size: 9px; }
+  .kpi-card .card-body > div:last-child { min-width: 0; flex: 1; overflow: hidden; }
 
-  /* Evita overflow de texto nos cards */
-  .kpi-card .card-body > div:last-child { min-width: 0; overflow: hidden; }
-  .kpi-card .kpi-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* MO resumo no mobile ainda mais compacto */
+  .mo-valor { font-size: 0.7rem; }
 
   .table { font-size: 11px; }
   .table thead th { font-size: 10px; letter-spacing: 0; }
