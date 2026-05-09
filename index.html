@@ -17,8 +17,90 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
   <link rel="stylesheet" href="css/styles.css">
+
+  <style>
+    /* ── LOGIN OVERLAY ─────────────────────────────────────── */
+    #loginOverlay {
+      position: fixed;
+      inset: 0;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+    #loginOverlay.hidden { display: none; }
+
+    .login-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px 36px 32px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .login-box .login-logo {
+      display: block;
+      max-width: 160px;
+      max-height: 80px;
+      object-fit: contain;
+      margin: 0 auto 20px;
+    }
+    .login-box h5 {
+      text-align: center;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 24px;
+      font-size: 15px;
+    }
+    #loginError {
+      display: none;
+      font-size: 12px;
+    }
+    .login-box .btn-login {
+      background: var(--accent);
+      border: none;
+      color: #1a1a2e;
+      font-weight: 700;
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 8px;
+      width: 100%;
+      margin-top: 4px;
+      transition: opacity 0.2s;
+    }
+    .login-box .btn-login:hover { opacity: 0.88; }
+  </style>
 </head>
 <body>
+
+  <!-- ── LOGIN OVERLAY ──────────────────────────────────────── -->
+  <div id="loginOverlay">
+    <div class="login-box">
+      <img src="assets/logo.png" alt="Anagesso" class="login-logo" onerror="this.style.display='none'">
+      <h5>Sistema de Gestão Anagesso</h5>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" style="font-size:12px;">Usuário</label>
+        <input type="text" class="form-control" id="loginUsuario" placeholder="Digite seu usuário"
+          onkeydown="if(event.key==='Enter') document.getElementById('loginSenha').focus()">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" style="font-size:12px;">Senha</label>
+        <div class="input-group">
+          <input type="password" class="form-control" id="loginSenha" placeholder="Digite sua senha"
+            onkeydown="if(event.key==='Enter') Auth.login()">
+          <button class="btn btn-outline-secondary" type="button" id="btnToggleSenha"
+            onclick="Auth.toggleSenha()" tabindex="-1">
+            <i class="bi bi-eye" id="icoSenha"></i>
+          </button>
+        </div>
+      </div>
+      <div class="alert alert-danger py-2 mb-3" id="loginError">Usuário ou senha incorretos.</div>
+      <button class="btn-login" onclick="Auth.login()">
+        <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+      </button>
+    </div>
+  </div>
 
   <!-- SIDEBAR -->
   <aside id="sidebar">
@@ -49,6 +131,11 @@
         <i class="bi bi-person-lines-fill"></i> Clientes
       </a>
 
+      <div class="nav-section-label">Financeiro</div>
+      <a href="#" data-page="financeiro" onclick="App.navigate('financeiro',this)">
+        <i class="bi bi-cash-coin"></i> Financeiro
+      </a>
+
       <div class="nav-section-label">Cadastros</div>
       <a href="#" data-page="base-itens" onclick="App.navigate('base-itens',this)">
         <i class="bi bi-box-seam-fill"></i> Base de Itens
@@ -68,6 +155,10 @@
       </button>
       <h4 id="pageTitle">Dashboard</h4>
       <span class="badge bg-warning text-dark ms-auto" id="badgeData"></span>
+      <button class="btn btn-sm btn-outline-secondary ms-2" onclick="Auth.logout()" title="Sair">
+        <i class="bi bi-box-arrow-right"></i>
+        <span class="d-none d-md-inline ms-1">Sair</span>
+      </button>
     </header>
 
     <!-- CONTENT -->
@@ -96,20 +187,64 @@
   <script src="js/pages/orcamentos.js"></script>
   <script src="js/pages/base-itens.js"></script>
   <script src="js/pages/clientes.js"></script>
+  <script src="js/pages/financeiro.js"></script>
 
   <script>
+    /* ── AUTH ───────────────────────────────────────────────── */
+    const Auth = {
+      SESSION_KEY: 'anagesso_auth',
+
+      check() {
+        return sessionStorage.getItem(this.SESSION_KEY) === '1';
+      },
+
+      login() {
+        const u = document.getElementById('loginUsuario').value.trim();
+        const s = document.getElementById('loginSenha').value;
+        const err = document.getElementById('loginError');
+        if (u === CONFIG.login.usuario && s === CONFIG.login.senha) {
+          sessionStorage.setItem(this.SESSION_KEY, '1');
+          err.style.display = 'none';
+          document.getElementById('loginOverlay').classList.add('hidden');
+          App.init();
+        } else {
+          err.style.display = 'block';
+          document.getElementById('loginSenha').value = '';
+          document.getElementById('loginSenha').focus();
+        }
+      },
+
+      logout() {
+        sessionStorage.removeItem(this.SESSION_KEY);
+        location.reload();
+      },
+
+      toggleSenha() {
+        const inp = document.getElementById('loginSenha');
+        const ico = document.getElementById('icoSenha');
+        if (inp.type === 'password') {
+          inp.type = 'text';
+          ico.className = 'bi bi-eye-slash';
+        } else {
+          inp.type = 'password';
+          ico.className = 'bi bi-eye';
+        }
+      }
+    };
+
+    /* ── APP ────────────────────────────────────────────────── */
     const App = {
       pages: {
-        'dashboard': Dashboard,
+        'dashboard':   Dashboard,
         'mao-de-obra': MaoDeObra,
-        'obras': Obras,
-        'orcamentos': Orcamentos,
-        'base-itens': BaseItens,
-        'clientes': Clientes,
+        'obras':       Obras,
+        'orcamentos':  Orcamentos,
+        'base-itens':  BaseItens,
+        'clientes':    Clientes,
+        'financeiro':  Financeiro,
       },
 
       navigate(page, el) {
-        // Evita erro se chamado sem evento (ex: init direto)
         if (typeof event !== 'undefined' && event?.preventDefault) event.preventDefault();
         document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.remove('active'));
         if (el) el.classList.add('active');
@@ -126,17 +261,24 @@
 
       init() {
         document.getElementById('badgeData').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
-        // Registra plugin de datalabels globalmente
         Chart.register(ChartDataLabels);
-        // Garante que o dashboard carrega ao abrir
         const firstLink = document.querySelector('#sidebar nav a[data-page="dashboard"]');
         if (firstLink) firstLink.classList.add('active');
         Dashboard.render();
       }
     };
 
-    // Aguarda DOM completo antes de iniciar
-    document.addEventListener('DOMContentLoaded', () => App.init());
+    /* ── BOOT ───────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', () => {
+      if (Auth.check()) {
+        // Já autenticado — esconde login e inicia app
+        document.getElementById('loginOverlay').classList.add('hidden');
+        App.init();
+      } else {
+        // Mostra login; foca no campo usuário
+        document.getElementById('loginUsuario').focus();
+      }
+    });
   </script>
 </body>
 </html>

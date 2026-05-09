@@ -6,4 +6,6 @@ const CONFIG = {
   empresa: 'Anagesso',
   moeda: 'BRL',
   funcionarios: ['Thadeu', 'Vitor', 'Gabriel', 'Dim', 'Edir', 'Leandro'],
+  // Credenciais de acesso ao sistema
+  login: { usuario: 'anagesso', senha: 'anagesso@2026' },
 };
