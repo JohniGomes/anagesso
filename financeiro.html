@@ -183,6 +183,11 @@ td{padding:10px 12px;font-size:12px;color:var(--st);white-space:nowrap}
 .btn-edit:hover{border-color:var(--bm);background:var(--bp)}
 .form-editing .card-topo{background:linear-gradient(135deg,#1a5c3a,#27ae60)!important}
 .form-editing .btn-salvar{background:linear-gradient(135deg,#1a5c3a,#27ae60)!important}
+/* LOADING OVERLAY */
+#fin-loading{display:none;position:fixed;inset:0;background:rgba(240,243,247,.82);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(2px)}
+.fin-spin{width:40px;height:40px;border:4px solid var(--bp2);border-top-color:var(--bm);border-radius:50%;animation:finspin .7s linear infinite}
+@keyframes finspin{to{transform:rotate(360deg)}}
+.fin-load-txt{font-size:13px;font-weight:600;color:var(--bm);letter-spacing:.3px}
 .vazio{padding:50px 20px;text-align:center}
 .vazio-ico{font-size:38px;margin-bottom:10px;opacity:.4}
 .vazio-txt{font-size:14px;font-weight:600;color:var(--gm);margin-bottom:4px}
@@ -436,30 +441,81 @@ td{padding:10px 12px;font-size:12px;color:var(--st);white-space:nowrap}
   <button class="nav-mobile-btn"       id="nmb-dash" onclick="irPara('dash')"><span class="icone">📊</span><span>Dashboard</span></button>
 </nav>
 
+<div id="fin-loading"><div class="fin-spin"></div><span class="fin-load-txt">Carregando…</span></div>
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY='anagesso_erp_v3';
-function carregar(){try{return JSON.parse(localStorage.getItem(KEY))||[];}catch{return [];}}
-function salvarDados(d){localStorage.setItem(KEY,JSON.stringify(d));atualizarContador();}
-function atualizarContador(){const n=carregar().length;document.getElementById('totalCount').textContent=n+' registro'+(n!==1?'s':'');}
+// ── API auto-contida (não depende do frame pai) ───────────────
+const API_URL = 'https://script.google.com/macros/s/AKfycbwmNSDkQNru0hnSLIb24AhMnovlBxzY7OBEMk-26sYVmq9pmGwSwTct3ieXnMUpzp4O4w/exec';
 
-function irPara(p){
-  document.querySelectorAll('.pagina').forEach(x=>x.classList.remove('ativa'));
-  document.getElementById('pagina-'+p).classList.add('ativa');
-  ['nb-form','nb-dash','mm-form','mm-dash','nmb-form','nmb-dash'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.classList.toggle('ativo',(id.endsWith('form')&&p==='form')||(id.endsWith('dash')&&p==='dash'));
+const Api = {
+  async call(action, params = {}) {
+    const url = new URL(API_URL);
+    url.searchParams.set('action', action);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, typeof v === 'object' ? JSON.stringify(v) : v));
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json.data;
+  },
+  async post(action, body = {}) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, ...body }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json.data;
+  },
+  getFinanceiro:    (filtros = {}) => Api.call('getFinanceiro', filtros),
+  saveFinanceiro:   (data)         => Api.post('saveFinanceiro', data),
+  deleteFinanceiro: (id)           => Api.post('deleteFinanceiro', { id }),
+};
+
+// ── Cache local ───────────────────────────────────────────────
+let _cache = [];
+
+// ── Loading ───────────────────────────────────────────────────
+function showLoad(v){ document.getElementById('fin-loading').style.display = v ? 'flex' : 'none'; }
+
+// ── Contador ──────────────────────────────────────────────────
+function atualizarContador(dados){
+  const n = (dados || _cache).length;
+  document.getElementById('totalCount').textContent = n + ' registro' + (n !== 1 ? 's' : '');
+}
+
+// ── Navegação ─────────────────────────────────────────────────
+async function irPara(p) {
+  document.querySelectorAll('.pagina').forEach(x => x.classList.remove('ativa'));
+  document.getElementById('pagina-' + p).classList.add('ativa');
+  ['nb-form','nb-dash','mm-form','mm-dash','nmb-form','nmb-dash'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('ativo',
+      (id.endsWith('form') && p === 'form') || (id.endsWith('dash') && p === 'dash'));
   });
-  if(p==='dash'){autoStatus();renderDash();}
   fecharMenu();
-  window.scrollTo(0,0);
+  window.scrollTo(0, 0);
+  if (p === 'dash') {
+    showLoad(true);
+    try {
+      _cache = await Api.getFinanceiro();
+      autoStatus();
+      renderDash();
+    } catch(e) {
+      toast('❌ Erro ao carregar: ' + e.message, true);
+    } finally {
+      showLoad(false);
+    }
+  }
 }
-function toggleMenu(){
-  const m=document.getElementById('mobileMenu'),o=document.getElementById('menuOverlay');
-  if(m.classList.contains('aberto')){fecharMenu();}else{m.classList.add('aberto');o.classList.add('aberto');}
+function toggleMenu() {
+  const m = document.getElementById('mobileMenu'), o = document.getElementById('menuOverlay');
+  m.classList.contains('aberto') ? fecharMenu() : (m.classList.add('aberto'), o.classList.add('aberto'));
 }
-function fecharMenu(){
+function fecharMenu() {
   document.getElementById('mobileMenu').classList.remove('aberto');
   document.getElementById('menuOverlay').classList.remove('aberto');
 }
@@ -509,7 +565,7 @@ function setStatus(btn){
   document.getElementById('f-status').value=btn.dataset.v;
 }
 
-function salvar(){
+async function salvar(){
   const editId  =document.getElementById('f-id').value;
   const tipo    =document.getElementById('f-tipo').value;
   const cat     =document.getElementById('f-cat').value;
@@ -531,30 +587,32 @@ function salvar(){
   if(!valor||valor<=0) return toast('⚠️ Informe um valor válido.',true);
   if(!emissao)         return toast('⚠️ Informe a data de emissão.',true);
 
-  let dados=carregar();
+  const btn=document.getElementById('btn-salvar');
+  btn.disabled=true; btn.textContent='Salvando…';
 
-  if(editId){
-    // ── Modo edição: atualiza o item existente ────────────
-    const idx=dados.findIndex(x=>String(x.id)===String(editId));
-    if(idx!==-1) dados[idx]={...dados[idx],tipo,cat,sub,tipod,desc,parceiro,valor,status,obs,emissao,venc,pag};
-    salvarDados(dados);
-    toast('✅ Lançamento atualizado com sucesso!');
+  try {
+    if(editId){
+      await Api.saveFinanceiro({id:editId,tipo,cat,sub,tipod,desc,parceiro,valor,status,obs,emissao,venc,pag,parcela:''});
+      toast('✅ Lançamento atualizado com sucesso!');
+    } else {
+      for(let i=0;i<parcN;i++){
+        await Api.saveFinanceiro({tipo,cat,sub,tipod,desc,parceiro,valor,status,obs,emissao,pag,
+          venc:venc?addMeses(venc,i):'',parcela:parcN>1?`${i+1}/${parcN}`:''});
+      }
+      toast('✅ '+(parcN>1?parcN+' lançamentos salvos!':'Lançamento salvo com sucesso!'));
+    }
     resetForm();
     irPara('dash');
-  } else {
-    // ── Modo criação: insere (com parcelas) ───────────────
-    for(let i=0;i<parcN;i++){
-      dados.unshift({id:Date.now()+i,tipo,cat,sub,tipod,desc,parceiro,valor,status,obs,emissao,pag,
-        venc:venc?addMeses(venc,i):'',parcela:parcN>1?`${i+1}/${parcN}`:''});
-    }
-    salvarDados(dados);
-    toast('✅ '+(parcN>1?parcN+' lançamentos salvos!':'Lançamento salvo com sucesso!'));
-    resetForm();
+  } catch(e) {
+    toast('❌ Erro ao salvar: '+e.message, true);
+  } finally {
+    btn.disabled=false;
+    btn.textContent=editId?'SALVAR ALTERAÇÕES':'SALVAR LANÇAMENTO';
   }
 }
 
 function editar(id){
-  const item=carregar().find(x=>x.id===id);
+  const item=_cache.find(x=>String(x.id)===String(id));
   if(!item)return;
 
   // Preenche campos
@@ -620,14 +678,13 @@ function resetForm(){
 }
 
 function autoStatus(){
-  const dados=carregar();const now=new Date();now.setHours(0,0,0,0);let ch=false;
-  dados.forEach(x=>{
+  const now=new Date();now.setHours(0,0,0,0);
+  _cache.forEach(x=>{
     if(!x.venc||['pago','cancelado'].includes(x.status))return;
     const dv=new Date(x.venc+'T00:00:00');
-    if(dv<now&&x.status!=='atrasado'){x.status='atrasado';ch=true;}
-    else if(dv>=now&&x.status==='atrasado'){x.status='pendente';ch=true;}
+    const ns=dv<now?'atrasado':'pendente';
+    if(ns!==x.status){x.status=ns;Api.saveFinanceiro({...x}).catch(()=>{});}
   });
-  if(ch)salvarDados(dados);
 }
 
 function hoje(){return new Date().toISOString().split('T')[0];}
@@ -642,7 +699,7 @@ function toast(msg,err=false){
 }
 
 function renderDash(){
-  const dados=carregar();
+  const dados=_cache;
   renderAlertas(dados);
   const rec=dados.filter(x=>x.tipo==='receber'),pag=dados.filter(x=>x.tipo==='pagar');
   const pend=dados.filter(x=>['pendente','atrasado'].includes(x.status));
@@ -722,7 +779,7 @@ function renderTabela(){
   const fS=document.getElementById('fil-status')?.value||'';
   const fP=document.getElementById('fil-per')?.value||'';
   const now=new Date();now.setHours(0,0,0,0);
-  let dados=carregar();
+  let dados=_cache.slice();
   if(fT)dados=dados.filter(x=>x.tipo===fT);
   if(fC)dados=dados.filter(x=>x.cat===fC);
   if(fS)dados=dados.filter(x=>x.status===fS);
@@ -742,11 +799,34 @@ function renderTabela(){
   }).join('')}</tbody></table>`;
 }
 
-function mudarStatus(id,novo){const dados=carregar(),item=dados.find(x=>x.id===id);if(item){item.status=novo;salvarDados(dados);renderDash();}}
-function excluir(id){if(!confirm('Remover este lançamento?'))return;salvarDados(carregar().filter(x=>x.id!==id));renderDash();toast('Lançamento removido.');}
+async function mudarStatus(id,novo){
+  const item=_cache.find(x=>String(x.id)===String(id));
+  if(!item)return;
+  const prev=item.status;
+  item.status=novo;
+  renderDash();
+  try{ await Api.saveFinanceiro({...item}); }
+  catch(e){ item.status=prev; renderDash(); toast('❌ Erro: '+e.message,true); }
+}
 
-atualizarContador();autoStatus();
+async function excluir(id){
+  if(!confirm('Remover este lançamento?'))return;
+  try{
+    await Api.deleteFinanceiro(id);
+    _cache=_cache.filter(x=>String(x.id)!==String(id));
+    atualizarContador();
+    renderDash();
+    toast('Lançamento removido.');
+  } catch(e){ toast('❌ Erro ao remover: '+e.message,true); }
+}
+
 document.getElementById('f-emissao').value=hoje();
+(async()=>{
+  showLoad(true);
+  try{ _cache=await Api.getFinanceiro(); autoStatus(); atualizarContador(); }
+  catch(e){ toast('❌ Erro ao carregar dados: '+e.message,true); }
+  finally{ showLoad(false); }
+})();
 </script>
 </body>
 </html>

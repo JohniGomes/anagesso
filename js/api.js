@@ -47,6 +47,11 @@ const Api = {
   saveOrcamento: (data) => Api.post('saveOrcamento', data),
   deleteOrcamento: (id) => Api.post('deleteOrcamento', { id }),
 
+  // Financeiro
+  getFinanceiro:    (filtros = {}) => Api.call('getFinanceiro', filtros),
+  saveFinanceiro:   (data)        => Api.post('saveFinanceiro', data),
+  deleteFinanceiro: (id)          => Api.post('deleteFinanceiro', { id }),
+
   // Dashboard
   getDashboard: () => Api.call('getDashboard'),
 };

@@ -11,6 +11,7 @@ const SHEETS = {
   OBRAS:      'Obras',
   MAO_OBRA:   'Controle_MO',
   ORCAMENTOS: 'Orcamentos',
+  FINANCEIRO: 'Financeiro',
 };
 
 // ─── CORS / Entry Points ────────────────────────────────────
@@ -70,6 +71,11 @@ function dispatch(action, params, body) {
     case 'getOrcamentos':   return getAll(SHEETS.ORCAMENTOS);
     case 'saveOrcamento':   return save(SHEETS.ORCAMENTOS, body, orcamentoSchema());
     case 'deleteOrcamento': return remove(SHEETS.ORCAMENTOS, body.id);
+
+    // Financeiro
+    case 'getFinanceiro':    return getFinanceiro(params);
+    case 'saveFinanceiro':   return save(SHEETS.FINANCEIRO, body, financeiroSchema());
+    case 'deleteFinanceiro': return remove(SHEETS.FINANCEIRO, body.id);
 
     // Dashboard
     case 'getDashboard': return getDashboard();
@@ -162,6 +168,20 @@ function remove(sheetName, id) {
   throw new Error('Registro não encontrado: ' + id);
 }
 
+// ─── Financeiro com filtro ───────────────────────────────────
+
+function getFinanceiro(params) {
+  const sheet = getOrCreateSheet(SHEETS.FINANCEIRO, financeiroSchema().headers);
+  let dados   = sheetToObjects(sheet, financeiroSchema().keys);
+
+  // Filtros opcionais (usados pelo front quando quiser pré-filtrar no servidor)
+  if (params.tipo)   dados = dados.filter(r => r.tipo   === params.tipo);
+  if (params.cat)    dados = dados.filter(r => r.cat    === params.cat);
+  if (params.status) dados = dados.filter(r => r.status === params.status);
+
+  return dados;
+}
+
 // ─── Mão de Obra com filtro ──────────────────────────────────
 
 function getMaoDeObra(params) {
@@ -239,6 +259,7 @@ function getSchema(sheetName) {
     case SHEETS.OBRAS:      return obraSchema();
     case SHEETS.MAO_OBRA:   return maoObraSchema();
     case SHEETS.ORCAMENTOS: return orcamentoSchema();
+    case SHEETS.FINANCEIRO: return financeiroSchema();
     default: throw new Error('Schema não encontrado para: ' + sheetName);
   }
 }
@@ -275,6 +296,13 @@ function orcamentoSchema() {
   return {
     headers: ['id', 'cliente', 'telefone', 'email', 'data', 'status', 'obs', 'itens', 'valorTotal'],
     keys:    ['id', 'cliente', 'telefone', 'email', 'data', 'status', 'obs', 'itens', 'valorTotal'],
+  };
+}
+
+function financeiroSchema() {
+  return {
+    headers: ['id', 'tipo', 'cat', 'sub', 'tipod', 'desc', 'parceiro', 'valor', 'status', 'obs', 'emissao', 'venc', 'pag', 'parcela'],
+    keys:    ['id', 'tipo', 'cat', 'sub', 'tipod', 'desc', 'parceiro', 'valor', 'status', 'obs', 'emissao', 'venc', 'pag', 'parcela'],
   };
 }
 
