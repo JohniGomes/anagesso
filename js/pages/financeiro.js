@@ -3,7 +3,7 @@ const Financeiro = {
     document.getElementById('pageTitle').textContent = 'Financeiro';
     document.getElementById('content').innerHTML = `
       <iframe
-        src="financeiro.html"
+        src="financeiro.html?v=${Date.now()}"
         id="frameFinanceiro"
         style="width:100%;height:calc(100vh - 56px);border:none;display:block;"
         title="Módulo Financeiro"
