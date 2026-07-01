@@ -273,15 +273,15 @@ function clienteSchema() {
 
 function itemSchema() {
   return {
-    headers: ['id', 'produto', 'preco'],
-    keys:    ['id', 'produto', 'preco'],
+    headers: ['id', 'produto', 'preco', 'unidade'],
+    keys:    ['id', 'produto', 'preco', 'unidade'],
   };
 }
 
 function obraSchema() {
   return {
-    headers: ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens'],
-    keys:    ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens'],
+    headers: ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens', 'pagamentos'],
+    keys:    ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens', 'pagamentos'],
   };
 }
 

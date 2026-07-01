@@ -2,6 +2,8 @@ const Obras = {
   dados: [],
   itensBase: [],
   itensSelecionados: [],
+  pagamentos: [],      // histórico de pagamentos da obra em edição
+  editandoPagIdx: -1, // índice do pagamento sendo editado (-1 = novo)
 
   async render() {
     document.getElementById('pageTitle').textContent = 'Fechamento de Obras';
@@ -90,15 +92,63 @@ const Obras = {
                     </div>
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label">Valores Pago</label>
+                    <label class="form-label text-muted">Total Pago (auto)</label>
                     <div class="input-group">
                       <span class="input-group-text">R$</span>
-                      <input type="number" class="form-control" id="obraPago" step="0.01" min="0" value="0" oninput="Obras.recalcular()">
+                      <input type="text" class="form-control bg-light fw-semibold text-success" id="obraPagoDisplay" readonly value="0,00">
                     </div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label text-muted">A Receber (auto)</label>
                     <input type="text" class="form-control bg-light fw-semibold text-warning" id="obraReceber" readonly>
+                  </div>
+                </div>
+
+                <!-- Pagamentos Recebidos -->
+                <h6 class="fw-semibold text-primary mb-2"><i class="bi bi-cash-coin me-1"></i>Pagamentos Recebidos</h6>
+                <div class="card border mb-4">
+                  <div class="card-body p-3">
+                    <!-- Formulário inline de pagamento -->
+                    <div class="row g-2 align-items-end mb-3" id="rowFormPag">
+                      <div class="col-md-3">
+                        <label class="form-label small mb-1">Data</label>
+                        <input type="date" class="form-control form-control-sm" id="pagData">
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small mb-1">Valor (R$)</label>
+                        <input type="number" class="form-control form-control-sm" id="pagValor" step="0.01" min="0" placeholder="0,00">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label small mb-1">Observação</label>
+                        <input type="text" class="form-control form-control-sm" id="pagObs" placeholder="Ex: Entrada, Parcela 1...">
+                      </div>
+                      <div class="col-md-2 d-flex gap-1">
+                        <button type="button" class="btn btn-success btn-sm flex-fill" onclick="Obras.adicionarPagamento()">
+                          <i class="bi bi-check-lg"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelarPag" style="display:none" onclick="Obras.cancelarEdicaoPag()">
+                          <i class="bi bi-x-lg"></i>
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Tabela de pagamentos -->
+                    <div class="table-responsive">
+                      <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                          <tr><th>Data</th><th class="text-end">Valor</th><th>Observação</th><th class="text-center" style="width:80px">Ações</th></tr>
+                        </thead>
+                        <tbody id="tbodyPagamentos">
+                          <tr><td colspan="4" class="text-muted text-center py-2 small">Nenhum pagamento registrado.</td></tr>
+                        </tbody>
+                        <tfoot>
+                          <tr class="fw-bold table-secondary">
+                            <td>Total Recebido</td>
+                            <td class="text-end text-success" id="totalPagoFoot">R$ 0,00</td>
+                            <td colspan="2"></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -277,11 +327,9 @@ const Obras = {
     const sel = document.getElementById('obraSelectItem');
     const opt = sel.selectedOptions[0];
     if (!opt?.value) { Utils.showToast('Selecione um item.', 'warning'); return; }
-    const qtd    = parseFloat(document.getElementById('obraItemQtd').value)  || 1;
-    const preco  = parseFloat(document.getElementById('obraItemPreco').value) || 0;
-    this.itensSelecionados.push({
-      id: opt.value, produto: opt.dataset.produto, qtd, precoUnit: preco, total: qtd * preco
-    });
+    const qtd   = parseFloat(document.getElementById('obraItemQtd').value)  || 1;
+    const preco = parseFloat(document.getElementById('obraItemPreco').value) || 0;
+    this.itensSelecionados.push({ id: opt.value, produto: opt.dataset.produto, qtd, precoUnit: preco, total: qtd * preco });
     sel.value = '';
     document.getElementById('obraItemQtd').value  = 1;
     document.getElementById('obraItemPreco').value = '';
@@ -296,7 +344,6 @@ const Obras = {
   renderItensModal() {
     const tbody = document.getElementById('tbodyObraItens');
     const totalMaterial = this.itensSelecionados.reduce((s, i) => s + i.total, 0);
-
     if (!this.itensSelecionados.length) {
       tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-2 small">Nenhum item adicionado.</td></tr>';
     } else {
@@ -309,28 +356,92 @@ const Obras = {
           <td class="text-center"><button class="btn btn-link text-danger p-0 btn-sm" onclick="Obras.removerItem(${idx})"><i class="bi bi-x-circle"></i></button></td>
         </tr>`).join('');
     }
-
     document.getElementById('obraTotalMaterial').textContent = Utils.formatCurrency(totalMaterial);
-    // Atualiza campo de material automaticamente
     document.getElementById('obraMaterial').value = totalMaterial.toFixed(2);
     this.recalcular();
   },
 
+  // ── Pagamentos ────────────────────────────────────────────────
+  adicionarPagamento() {
+    const data  = document.getElementById('pagData').value;
+    const valor = parseFloat(document.getElementById('pagValor').value);
+    const obs   = document.getElementById('pagObs').value.trim();
+    if (!data)        return Utils.showToast('Informe a data do pagamento.', 'warning');
+    if (!valor || valor <= 0) return Utils.showToast('Informe um valor válido.', 'warning');
+
+    if (this.editandoPagIdx >= 0) {
+      this.pagamentos[this.editandoPagIdx] = { data, valor, obs };
+      this.editandoPagIdx = -1;
+      document.getElementById('btnCancelarPag').style.display = 'none';
+    } else {
+      this.pagamentos.push({ data, valor, obs });
+    }
+    document.getElementById('pagData').value  = '';
+    document.getElementById('pagValor').value = '';
+    document.getElementById('pagObs').value   = '';
+    this.renderPagamentos();
+  },
+
+  editarPagamento(idx) {
+    const p = this.pagamentos[idx];
+    document.getElementById('pagData').value  = p.data;
+    document.getElementById('pagValor').value = p.valor;
+    document.getElementById('pagObs').value   = p.obs || '';
+    this.editandoPagIdx = idx;
+    document.getElementById('btnCancelarPag').style.display = '';
+    document.getElementById('pagValor').focus();
+  },
+
+  cancelarEdicaoPag() {
+    this.editandoPagIdx = -1;
+    document.getElementById('pagData').value  = '';
+    document.getElementById('pagValor').value = '';
+    document.getElementById('pagObs').value   = '';
+    document.getElementById('btnCancelarPag').style.display = 'none';
+  },
+
+  removerPagamento(idx) {
+    this.pagamentos.splice(idx, 1);
+    this.renderPagamentos();
+  },
+
+  renderPagamentos() {
+    const tbody = document.getElementById('tbodyPagamentos');
+    const total = this.pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+    if (!this.pagamentos.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2 small">Nenhum pagamento registrado.</td></tr>';
+    } else {
+      tbody.innerHTML = this.pagamentos.map((p, idx) => `
+        <tr>
+          <td class="small">${Utils.formatDate(p.data)}</td>
+          <td class="text-end fw-semibold text-success">${Utils.formatCurrency(p.valor)}</td>
+          <td class="small text-muted">${p.obs || '—'}</td>
+          <td class="text-center" style="white-space:nowrap">
+            <button class="btn btn-link text-primary p-0 btn-sm me-2" onclick="Obras.editarPagamento(${idx})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-link text-danger p-0 btn-sm" onclick="Obras.removerPagamento(${idx})"><i class="bi bi-x-circle"></i></button>
+          </td>
+        </tr>`).join('');
+    }
+    document.getElementById('totalPagoFoot').textContent = Utils.formatCurrency(total);
+    document.getElementById('obraPagoDisplay').value = Utils.formatCurrency(total).replace('R$ ', '');
+    this.recalcular();
+  },
+
   recalcular() {
-    const orcamento  = parseFloat(document.getElementById('obraOrcamento')?.value) || 0;
-    const fechado    = parseFloat(document.getElementById('obraFechado')?.value)    || 0;
-    const pago       = parseFloat(document.getElementById('obraPago')?.value)       || 0;
-    const mo         = parseFloat(document.getElementById('obraMO')?.value)         || 0;
-    const material   = parseFloat(document.getElementById('obraMaterial')?.value)   || 0;
-    const variaveis  = parseFloat(document.getElementById('obraVariaveis')?.value)  || 0;
+    const orcamento = parseFloat(document.getElementById('obraOrcamento')?.value) || 0;
+    const fechado   = parseFloat(document.getElementById('obraFechado')?.value)   || 0;
+    const mo        = parseFloat(document.getElementById('obraMO')?.value)        || 0;
+    const material  = parseFloat(document.getElementById('obraMaterial')?.value)  || 0;
+    const variaveis = parseFloat(document.getElementById('obraVariaveis')?.value) || 0;
+    const pago      = this.pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
 
     const receber = fechado - pago;
     const custo   = mo + material + variaveis;
     const lucro   = orcamento - mo - material - variaveis;
 
-    if (document.getElementById('obraReceber'))     document.getElementById('obraReceber').value     = Utils.formatCurrency(receber);
-    if (document.getElementById('obraCusto'))       document.getElementById('obraCusto').textContent = Utils.formatCurrency(custo);
-    if (document.getElementById('obraOrcDisplay'))  document.getElementById('obraOrcDisplay').textContent = Utils.formatCurrency(orcamento);
+    if (document.getElementById('obraReceber'))    document.getElementById('obraReceber').value     = Utils.formatCurrency(receber);
+    if (document.getElementById('obraCusto'))      document.getElementById('obraCusto').textContent = Utils.formatCurrency(custo);
+    if (document.getElementById('obraOrcDisplay')) document.getElementById('obraOrcDisplay').textContent = Utils.formatCurrency(orcamento);
     if (document.getElementById('obraLucro')) {
       const el = document.getElementById('obraLucro');
       el.textContent = Utils.formatCurrency(lucro);
@@ -340,23 +451,30 @@ const Obras = {
 
   abrirModal(dados = null) {
     this.itensSelecionados = [];
-    if (dados?.itens) {
-      try { this.itensSelecionados = JSON.parse(dados.itens); } catch (_) {}
-    }
+    this.pagamentos        = [];
+    this.editandoPagIdx    = -1;
 
-    document.getElementById('obraId').value        = dados?.id             || '';
-    document.getElementById('obraNome').value       = dados?.nome          || '';
-    document.getElementById('obraInicio').value     = dados?.dtInicio      || '';
-    document.getElementById('obraEntrega').value    = dados?.dtEntrega     || '';
-    document.getElementById('obraFase').value       = dados?.fase          || 'ANDAMENTO';
-    document.getElementById('obraOrcamento').value  = dados?.valorOrcamento|| 0;
-    document.getElementById('obraFechado').value    = dados?.valorFechado  || 0;
-    document.getElementById('obraPago').value       = dados?.valorPago     || 0;
-    document.getElementById('obraMO').value         = dados?.maoDeObra     || 0;
-    document.getElementById('obraVariaveis').value  = dados?.variaveis     || 0;
+    if (dados?.itens) { try { this.itensSelecionados = JSON.parse(dados.itens); } catch (_) {} }
+    if (dados?.pagamentos) { try { this.pagamentos = JSON.parse(dados.pagamentos); } catch (_) {} }
+
+    document.getElementById('obraId').value       = dados?.id             || '';
+    document.getElementById('obraNome').value      = dados?.nome          || '';
+    document.getElementById('obraInicio').value    = dados?.dtInicio      || '';
+    document.getElementById('obraEntrega').value   = dados?.dtEntrega     || '';
+    document.getElementById('obraFase').value      = dados?.fase          || 'ANDAMENTO';
+    document.getElementById('obraOrcamento').value = dados?.valorOrcamento|| 0;
+    document.getElementById('obraFechado').value   = dados?.valorFechado  || 0;
+    document.getElementById('obraMO').value        = dados?.maoDeObra     || 0;
+    document.getElementById('obraVariaveis').value = dados?.variaveis     || 0;
+    document.getElementById('pagData').value       = '';
+    document.getElementById('pagValor').value      = '';
+    document.getElementById('pagObs').value        = '';
+    document.getElementById('btnCancelarPag').style.display = 'none';
 
     this.preencherSelectItens();
-    this.renderItensModal();          // também seta material e recalcula
+    this.renderItensModal();
+    this.renderPagamentos();
+
     if (!this.itensSelecionados.length) {
       document.getElementById('obraMaterial').value = dados?.material || 0;
       this.recalcular();
@@ -376,10 +494,10 @@ const Obras = {
 
     const orcamento = parseFloat(document.getElementById('obraOrcamento').value) || 0;
     const fechado   = parseFloat(document.getElementById('obraFechado').value)   || 0;
-    const pago      = parseFloat(document.getElementById('obraPago').value)      || 0;
     const mo        = parseFloat(document.getElementById('obraMO').value)        || 0;
     const material  = parseFloat(document.getElementById('obraMaterial').value)  || 0;
     const variaveis = parseFloat(document.getElementById('obraVariaveis').value) || 0;
+    const pago      = this.pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
     const custo     = mo + material + variaveis;
     const lucro     = orcamento - mo - material - variaveis;
 
@@ -399,6 +517,7 @@ const Obras = {
       custoObra:      custo,
       lucro,
       itens:          JSON.stringify(this.itensSelecionados),
+      pagamentos:     JSON.stringify(this.pagamentos),
     };
 
     try {

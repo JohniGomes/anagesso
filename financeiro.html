@@ -602,7 +602,6 @@ async function salvar(){
       toast('✅ '+(parcN>1?parcN+' lançamentos salvos!':'Lançamento salvo com sucesso!'));
     }
     resetForm();
-    irPara('dash');
   } catch(e) {
     toast('❌ Erro ao salvar: '+e.message, true);
   } finally {
