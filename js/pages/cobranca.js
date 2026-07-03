@@ -136,7 +136,7 @@ const Cobranca = {
       this.renderTabela(this.dados);
       this.renderKpis();
     } catch (e) {
-      document.getElementById('tbodyCobranca').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Erro ao carregar.</td></tr>`;
+      document.getElementById('tbodyCobranca').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Erro ao carregar: ${e.message}</td></tr>`;
     } finally {
       Utils.showLoading(false);
     }
