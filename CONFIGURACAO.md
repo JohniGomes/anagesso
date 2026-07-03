@@ -38,7 +38,7 @@ git init
 git add .
 git commit -m "ERP Anagesso v1.0"
 git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/erp-anagesso.git
+git remote add origin https://github.com/JohniGomes/anagesso.git
 git push -u origin main
 ```
 

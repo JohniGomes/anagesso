@@ -124,6 +124,12 @@
       <a href="#" data-page="obras" onclick="App.navigate('obras',this)">
         <i class="bi bi-building-fill-check"></i> Obras
       </a>
+      <a href="#" data-page="compras" onclick="App.navigate('compras',this)">
+        <i class="bi bi-cart-fill"></i> Compras de Material
+      </a>
+      <a href="#" data-page="veiculos" onclick="App.navigate('veiculos',this)">
+        <i class="bi bi-truck"></i> Veículos
+      </a>
 
       <div class="nav-section-label">Comercial</div>
       <a href="#" data-page="orcamentos" onclick="App.navigate('orcamentos',this)">
@@ -131,6 +137,9 @@
       </a>
       <a href="#" data-page="clientes" onclick="App.navigate('clientes',this)">
         <i class="bi bi-person-lines-fill"></i> Clientes
+      </a>
+      <a href="#" data-page="cobranca" onclick="App.navigate('cobranca',this)">
+        <i class="bi bi-cash-stack"></i> Cobranças
       </a>
 
       <div class="nav-section-label">Financeiro</div>
@@ -190,25 +199,41 @@
   <script src="js/pages/base-itens.js"></script>
   <script src="js/pages/clientes.js"></script>
   <script src="js/pages/financeiro.js"></script>
+  <script src="js/pages/veiculos.js"></script>
+  <script src="js/pages/cobranca.js"></script>
+  <script src="js/pages/compras.js"></script>
 
   <script>
     /* ── AUTH ───────────────────────────────────────────────── */
     const Auth = {
       SESSION_KEY: 'anagesso_auth',
+      ROLE_KEY:    'anagesso_role',
 
       check() {
-        return sessionStorage.getItem(this.SESSION_KEY) === '1';
+        return !!sessionStorage.getItem(this.SESSION_KEY);
+      },
+
+      role() {
+        return sessionStorage.getItem(this.ROLE_KEY) || 'admin';
       },
 
       login() {
         const u = document.getElementById('loginUsuario').value.trim();
         const s = document.getElementById('loginSenha').value;
         const err = document.getElementById('loginError');
+
         if (u === CONFIG.login.usuario && s === CONFIG.login.senha) {
           sessionStorage.setItem(this.SESSION_KEY, '1');
+          sessionStorage.setItem(this.ROLE_KEY, 'admin');
           err.style.display = 'none';
           document.getElementById('loginOverlay').classList.add('hidden');
-          App.init();
+          App.init('admin');
+        } else if (u === CONFIG.loginOperador.usuario && s === CONFIG.loginOperador.senha) {
+          sessionStorage.setItem(this.SESSION_KEY, '1');
+          sessionStorage.setItem(this.ROLE_KEY, 'operador');
+          err.style.display = 'none';
+          document.getElementById('loginOverlay').classList.add('hidden');
+          App.init('operador');
         } else {
           err.style.display = 'block';
           document.getElementById('loginSenha').value = '';
@@ -218,6 +243,7 @@
 
       logout() {
         sessionStorage.removeItem(this.SESSION_KEY);
+        sessionStorage.removeItem(this.ROLE_KEY);
         location.reload();
       },
 
@@ -244,6 +270,9 @@
         'base-itens':  BaseItens,
         'clientes':    Clientes,
         'financeiro':  Financeiro,
+        'veiculos':    Veiculos,
+        'cobranca':    Cobranca,
+        'compras':     Compras,
       },
 
       navigate(page, el) {
@@ -261,8 +290,21 @@
         document.getElementById('sidebar').classList.toggle('open');
       },
 
-      init() {
+      init(role) {
+        role = role || Auth.role();
         document.getElementById('badgeData').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+        if (role === 'operador') {
+          // Modo operador: sidebar oculta, apenas tela de compras
+          document.getElementById('sidebar').style.display = 'none';
+          document.getElementById('main').style.marginLeft = '0';
+          document.getElementById('menuToggle').style.display = 'none';
+          document.getElementById('pageTitle').textContent = 'Compras de Material';
+          Compras.render();
+          return;
+        }
+
+        // Modo admin: app completo
         Chart.register(ChartDataLabels);
         const firstLink = document.querySelector('#sidebar nav a[data-page="dashboard"]');
         if (firstLink) firstLink.classList.add('active');
@@ -273,7 +315,6 @@
     /* ── BOOT ───────────────────────────────────────────────── */
     document.addEventListener('DOMContentLoaded', () => {
       if (Auth.check()) {
-        // Já autenticado — esconde login e inicia app
         document.getElementById('loginOverlay').classList.add('hidden');
         App.init();
       } else {

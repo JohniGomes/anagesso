@@ -52,6 +52,21 @@ const Api = {
   saveFinanceiro:   (data)        => Api.post('saveFinanceiro', data),
   deleteFinanceiro: (id)          => Api.post('deleteFinanceiro', { id }),
 
+  // Veículos
+  getVeiculos:    ()     => Api.call('getVeiculos'),
+  saveVeiculo:    (data) => Api.post('saveVeiculo', data),
+  deleteVeiculo:  (id)   => Api.post('deleteVeiculo', { id }),
+
+  // Cobranças
+  getCobranca:    ()     => Api.call('getCobranca'),
+  saveCobranca:   (data) => Api.post('saveCobranca', data),
+  deleteCobranca: (id)   => Api.post('deleteCobranca', { id }),
+
+  // Compras de Material
+  getCompras:    (filtros = {}) => Api.call('getCompras', filtros),
+  saveCompra:    (data)         => Api.post('saveCompra', data),
+  deleteCompra:  (id)           => Api.post('deleteCompra', { id }),
+
   // Dashboard
   getDashboard: () => Api.call('getDashboard'),
 };

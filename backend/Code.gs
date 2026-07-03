@@ -12,6 +12,9 @@ const SHEETS = {
   MAO_OBRA:   'Controle_MO',
   ORCAMENTOS: 'Orcamentos',
   FINANCEIRO: 'Financeiro',
+  VEICULOS:   'Veiculos',
+  COBRANCA:   'Cobranca',
+  COMPRAS:    'Compras',
 };
 
 // ─── CORS / Entry Points ────────────────────────────────────
@@ -76,6 +79,21 @@ function dispatch(action, params, body) {
     case 'getFinanceiro':    return getFinanceiro(params);
     case 'saveFinanceiro':   return save(SHEETS.FINANCEIRO, body, financeiroSchema());
     case 'deleteFinanceiro': return remove(SHEETS.FINANCEIRO, body.id);
+
+    // Veículos
+    case 'getVeiculos':    return getAll(SHEETS.VEICULOS);
+    case 'saveVeiculo':    return save(SHEETS.VEICULOS, body, veiculoSchema());
+    case 'deleteVeiculo':  return remove(SHEETS.VEICULOS, body.id);
+
+    // Cobranças
+    case 'getCobranca':    return getAll(SHEETS.COBRANCA);
+    case 'saveCobranca':   return save(SHEETS.COBRANCA, body, cobrancaSchema());
+    case 'deleteCobranca': return remove(SHEETS.COBRANCA, body.id);
+
+    // Compras de Material
+    case 'getCompras':     return getCompras(params);
+    case 'saveCompra':     return saveCompra(body);
+    case 'deleteCompra':   return remove(SHEETS.COMPRAS, body.id);
 
     // Dashboard
     case 'getDashboard': return getDashboard();
@@ -260,8 +278,71 @@ function getSchema(sheetName) {
     case SHEETS.MAO_OBRA:   return maoObraSchema();
     case SHEETS.ORCAMENTOS: return orcamentoSchema();
     case SHEETS.FINANCEIRO: return financeiroSchema();
+    case SHEETS.VEICULOS:   return veiculoSchema();
+    case SHEETS.COBRANCA:   return cobrancaSchema();
+    case SHEETS.COMPRAS:    return compraSchema();
     default: throw new Error('Schema não encontrado para: ' + sheetName);
   }
+}
+
+function veiculoSchema() {
+  return {
+    headers: ['id', 'placa', 'modelo', 'motorista', 'data', 'horario', 'tipo', 'obs'],
+    keys:    ['id', 'placa', 'modelo', 'motorista', 'data', 'horario', 'tipo', 'obs'],
+  };
+}
+
+function cobrancaSchema() {
+  return {
+    headers: ['id', 'cliente', 'telefone', 'valorTotal', 'parcelas', 'diaVenc', 'obs', 'status', 'dataCadastro'],
+    keys:    ['id', 'cliente', 'telefone', 'valorTotal', 'parcelas', 'diaVenc', 'obs', 'status', 'dataCadastro'],
+  };
+}
+
+function compraSchema() {
+  return {
+    headers: ['id', 'obraId', 'obraNome', 'data', 'operador', 'itens', 'valorTotal', 'temNota', 'obs', 'dataCadastro'],
+    keys:    ['id', 'obraId', 'obraNome', 'data', 'operador', 'itens', 'valorTotal', 'temNota', 'obs', 'dataCadastro'],
+  };
+}
+
+function getCompras(params) {
+  const sheet = getOrCreateSheet(SHEETS.COMPRAS, compraSchema().headers);
+  let dados = sheetToObjects(sheet, compraSchema().keys);
+  if (params.obraId) dados = dados.filter(r => r.obraId === params.obraId);
+  return dados;
+}
+
+function saveCompra(body) {
+  const result = save(SHEETS.COMPRAS, body, compraSchema());
+
+  // Atualiza custo de material da obra vinculada
+  if (body.obraId && body.valorTotal) {
+    const sheet = getOrCreateSheet(SHEETS.OBRAS, obraSchema().headers);
+    const all   = sheet.getDataRange().getValues();
+    const keys  = obraSchema().keys;
+    const matIdx = keys.indexOf('material') + 1;
+    const custoIdx = keys.indexOf('custoObra') + 1;
+    const lucroIdx = keys.indexOf('lucro') + 1;
+    const moIdx = keys.indexOf('maoDeObra');
+    const varIdx = keys.indexOf('variaveis');
+    const orcIdx = keys.indexOf('valorOrcamento');
+
+    for (let i = 1; i < all.length; i++) {
+      if (String(all[i][0]) === String(body.obraId)) {
+        const newMat = (parseFloat(all[i][matIdx - 1]) || 0) + parseFloat(body.valorTotal);
+        const mo  = parseFloat(all[i][moIdx])  || 0;
+        const vr  = parseFloat(all[i][varIdx]) || 0;
+        const orc = parseFloat(all[i][orcIdx]) || 0;
+        sheet.getRange(i + 1, matIdx).setValue(newMat);
+        sheet.getRange(i + 1, custoIdx).setValue(mo + newMat + vr);
+        sheet.getRange(i + 1, lucroIdx).setValue(orc - mo - newMat - vr);
+        break;
+      }
+    }
+  }
+
+  return result;
 }
 
 function clienteSchema() {
