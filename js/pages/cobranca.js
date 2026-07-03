@@ -125,7 +125,7 @@ const Cobranca = {
 
   gerarLinkWA(item) {
     const msg = this.previewMsg(item);
-    const tel = (item.telefone || '').replace(/\D/g, '');
+    const tel = String(item.telefone || '').replace(/\D/g, '');
     return `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
   },
 
