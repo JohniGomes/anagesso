@@ -1,5 +1,7 @@
 const Api = {
-  _timeout: 25000, // 25s — evita loading eterno se o GAS não responder
+  _timeout: 30000,  // 30s por tentativa
+  _retries: 3,      // tenta até 3x (cobre cold start do GAS)
+  _retryDelay: 2000, // 2s entre tentativas
 
   async _fetch(input, init) {
     const ctrl = new AbortController();
@@ -7,18 +9,34 @@ const Api = {
     try {
       return await fetch(input, { ...init, signal: ctrl.signal });
     } catch (e) {
-      if (e.name === 'AbortError') throw new Error('Tempo limite atingido. Verifique a conexão ou reimplante o Apps Script.');
+      if (e.name === 'AbortError') throw new Error('timeout');
       throw e;
     } finally {
       clearTimeout(timer);
     }
   },
 
+  async _fetchWithRetry(input, init) {
+    let lastErr;
+    for (let i = 0; i < this._retries; i++) {
+      try {
+        const res = await this._fetch(input, init);
+        return res;
+      } catch (e) {
+        lastErr = e;
+        if (i < this._retries - 1) {
+          await new Promise(r => setTimeout(r, this._retryDelay));
+        }
+      }
+    }
+    throw new Error('Servidor não respondeu após ' + this._retries + ' tentativas. Tente novamente em instantes.');
+  },
+
   async call(action, params = {}) {
     const url = new URL(CONFIG.apiUrl);
     url.searchParams.set('action', action);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, typeof v === 'object' ? JSON.stringify(v) : v));
-    const res = await this._fetch(url.toString());
+    const res = await this._fetchWithRetry(url.toString());
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.error) throw new Error(json.error);
@@ -26,7 +44,7 @@ const Api = {
   },
 
   async post(action, body = {}) {
-    const res = await this._fetch(CONFIG.apiUrl, {
+    const res = await this._fetchWithRetry(CONFIG.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, ...body }),

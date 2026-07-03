@@ -103,8 +103,15 @@ const Dashboard = {
       this.atualizarSemanasSelect();
       this.filtrarMO();
     } catch (e) {
-      Utils.showToast('Erro ao carregar dashboard: ' + e.message, 'error');
-      document.getElementById('moResumo').innerHTML = `<p class="text-danger p-3 mb-0 small"><i class="bi bi-exclamation-triangle me-1"></i>Erro ao carregar. Verifique o backend.</p>`;
+      document.getElementById('moResumo').innerHTML = `
+        <div class="text-center py-4">
+          <i class="bi bi-wifi-off text-danger" style="font-size:2rem"></i>
+          <p class="text-danger mt-2 mb-1 small fw-semibold">Erro ao conectar com o servidor</p>
+          <p class="text-muted small mb-3">${e.message}</p>
+          <button class="btn btn-sm btn-outline-primary" onclick="Dashboard.loadData()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Tentar novamente
+          </button>
+        </div>`;
     } finally {
       Utils.showLoading(false);
     }
