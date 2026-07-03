@@ -1,5 +1,5 @@
 // Substitua pela URL do seu Google Apps Script após publicar como Web App
-const API_URL = 'https://script.google.com/macros/s/AKfycbwmNSDkQNru0hnSLIb24AhMnovlBxzY7OBEMk-26sYVmq9pmGwSwTct3ieXnMUpzp4O4w/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxzCogd1T8ypCCO7XmVbNllhEDv428sD3jVyZKMm7N0qhryF1VEgXmSAG2as_xK46nioA/exec';
 
 const CONFIG = {
   apiUrl: API_URL,
