@@ -1,17 +1,35 @@
 const Veiculos = {
   dados: [],
+  FROTA_KEY: 'anagesso_frota',
 
-  // Frota cadastrada
-  frota: [
+  // Frota padrão (usada na primeira vez)
+  _frotaPadrao: [
     { id: 'V001', nome: 'Hyundai HR HDB',    placa: 'NMQ9J47' },
     { id: 'V002', nome: 'FIAT Strada',        placa: 'RRI6E27' },
     { id: 'V003', nome: 'Volkswagen Saveiro', placa: 'ONU3A40' },
   ],
 
+  getFrota() {
+    try {
+      const s = localStorage.getItem(this.FROTA_KEY);
+      return s ? JSON.parse(s) : [...this._frotaPadrao];
+    } catch (_) { return [...this._frotaPadrao]; }
+  },
+
+  saveFrota(frota) {
+    localStorage.setItem(this.FROTA_KEY, JSON.stringify(frota));
+  },
+
   async render() {
     document.getElementById('pageTitle').textContent = 'Controle de Veículos';
-    const veiculoOptions = this.frota.map(v =>
-      `<option value="${v.id}" data-placa="${v.placa}">${v.nome} — ${v.placa}</option>`
+    this._renderPage();
+    await this.carregar();
+  },
+
+  _renderPage() {
+    const frota = this.getFrota();
+    const veiculoOptions = frota.map(v =>
+      `<option value="${v.id}" data-placa="${v.placa}" data-nome="${v.nome}">${v.nome} — ${v.placa}</option>`
     ).join('');
     const motoristaOptions = CONFIG.funcionarios.map(f =>
       `<option value="${f}">${f}</option>`
@@ -26,6 +44,9 @@ const Veiculos = {
           <option value="SAÍDA">Saída</option>
         </select>
         <input type="date" class="form-control form-control-sm" id="filtroDataV" style="max-width:160px" onchange="Veiculos.filtrar()">
+        <button class="btn btn-outline-secondary btn-sm" onclick="Veiculos.abrirGerenciarFrota()" title="Gerenciar frota">
+          <i class="bi bi-truck me-1"></i>Gerenciar Frota
+        </button>
         <button class="btn btn-success btn-sm ms-auto" onclick="Veiculos.abrirModal()">
           <i class="bi bi-plus-lg me-1"></i>Registrar
         </button>
@@ -50,7 +71,7 @@ const Veiculos = {
         </div>
       </div>
 
-      <!-- Modal -->
+      <!-- Modal Registrar -->
       <div class="modal fade" id="modalVeiculo" tabindex="-1">
         <div class="modal-dialog">
           <div class="modal-content">
@@ -117,15 +138,103 @@ const Veiculos = {
             </div>
           </div>
         </div>
-      </div>`;
+      </div>
 
-    await this.carregar();
+      <!-- Modal Gerenciar Frota -->
+      <div class="modal fade" id="modalFrota" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+              <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Gerenciar Frota</h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3 p-3 bg-light rounded">
+                <p class="fw-semibold mb-2 small">Adicionar veículo</p>
+                <div class="row g-2">
+                  <div class="col-12">
+                    <input type="text" class="form-control form-control-sm" id="novoVeiculoNome" placeholder="Nome/Modelo (ex: Ford Ranger)">
+                  </div>
+                  <div class="col-8">
+                    <input type="text" class="form-control form-control-sm text-uppercase" id="novoVeiculoPlaca"
+                      placeholder="Placa (ex: ABC1D23)" maxlength="8"
+                      oninput="this.value=this.value.toUpperCase()">
+                  </div>
+                  <div class="col-4">
+                    <button class="btn btn-success btn-sm w-100" onclick="Veiculos.adicionarVeiculo()">
+                      <i class="bi bi-plus-lg"></i> Adicionar
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div id="listaFrota"></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  },
+
+  abrirGerenciarFrota() {
+    this.renderListaFrota();
+    new bootstrap.Modal(document.getElementById('modalFrota')).show();
+  },
+
+  renderListaFrota() {
+    const frota = this.getFrota();
+    const el = document.getElementById('listaFrota');
+    if (!frota.length) {
+      el.innerHTML = '<p class="text-muted small text-center">Nenhum veículo cadastrado.</p>';
+      return;
+    }
+    el.innerHTML = `
+      <p class="fw-semibold small mb-2">Veículos cadastrados</p>
+      <ul class="list-group">
+        ${frota.map(v => `
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <span class="fw-semibold">${v.nome}</span>
+              <span class="badge bg-secondary ms-2">${v.placa}</span>
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="Veiculos.removerVeiculo('${v.id}')">
+              <i class="bi bi-trash"></i>
+            </button>
+          </li>`).join('')}
+      </ul>`;
+  },
+
+  adicionarVeiculo() {
+    const nome  = document.getElementById('novoVeiculoNome').value.trim();
+    const placa = document.getElementById('novoVeiculoPlaca').value.trim().toUpperCase();
+    if (!nome || !placa) { Utils.showToast('Informe nome e placa.', 'warning'); return; }
+
+    const frota = this.getFrota();
+    if (frota.some(v => v.placa === placa)) { Utils.showToast('Placa já cadastrada.', 'warning'); return; }
+
+    const id = 'V' + String(Date.now()).slice(-4);
+    frota.push({ id, nome, placa });
+    this.saveFrota(frota);
+
+    document.getElementById('novoVeiculoNome').value  = '';
+    document.getElementById('novoVeiculoPlaca').value = '';
+    this.renderListaFrota();
+    Utils.showToast('Veículo adicionado!');
+  },
+
+  removerVeiculo(id) {
+    if (!Utils.confirm('Remover este veículo da frota?')) return;
+    const frota = this.getFrota().filter(v => v.id !== id);
+    this.saveFrota(frota);
+    this.renderListaFrota();
+    Utils.showToast('Veículo removido.');
   },
 
   selecionarVeiculo(select) {
     const opt = select.selectedOptions[0];
     document.getElementById('veiculoPlaca').value  = opt?.dataset.placa || '';
-    document.getElementById('veiculoModelo').value = opt?.text.split(' — ')[0] || '';
+    document.getElementById('veiculoModelo').value = opt?.dataset.nome  || '';
   },
 
   setTipo(t) {
@@ -203,10 +312,9 @@ const Veiculos = {
     document.getElementById('veiculoModelo').value    = dados?.modelo    || '';
     document.getElementById('veiculoMotorista').value = dados?.motorista || '';
 
-    // Seleciona veículo na lista suspensa pelo modelo
     const sel = document.getElementById('veiculoSelect');
-    if (dados?.modelo) {
-      const opt = [...sel.options].find(o => o.text.startsWith(dados.modelo));
+    if (dados?.placa) {
+      const opt = [...sel.options].find(o => o.dataset.placa === dados.placa);
       sel.value = opt ? opt.value : '';
     } else {
       sel.value = '';
