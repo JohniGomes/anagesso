@@ -1,8 +1,22 @@
 const Veiculos = {
   dados: [],
 
+  // Frota cadastrada
+  frota: [
+    { id: 'V001', nome: 'Hyundai HR HDB',    placa: 'NMQ9J47' },
+    { id: 'V002', nome: 'FIAT Strada',        placa: 'RRI6E27' },
+    { id: 'V003', nome: 'Volkswagen Saveiro', placa: 'ONU3A40' },
+  ],
+
   async render() {
     document.getElementById('pageTitle').textContent = 'Controle de Veículos';
+    const veiculoOptions = this.frota.map(v =>
+      `<option value="${v.id}" data-placa="${v.placa}">${v.nome} — ${v.placa}</option>`
+    ).join('');
+    const motoristaOptions = CONFIG.funcionarios.map(f =>
+      `<option value="${f}">${f}</option>`
+    ).join('');
+
     document.getElementById('content').innerHTML = `
       <div class="d-flex flex-wrap gap-2 mb-4">
         <input type="text" class="form-control form-control-sm" id="buscaVeiculo" placeholder="Buscar placa ou motorista..." style="max-width:280px" oninput="Veiculos.filtrar()">
@@ -25,7 +39,7 @@ const Veiculos = {
             <table class="table table-hover align-middle mb-0">
               <thead class="table-dark">
                 <tr>
-                  <th>Tipo</th><th>Placa</th><th>Modelo</th>
+                  <th>Tipo</th><th>Veículo</th><th>Placa</th>
                   <th>Motorista</th><th>Data</th><th>Horário</th>
                   <th>Obs</th><th class="text-center">Ações</th>
                 </tr>
@@ -48,7 +62,7 @@ const Veiculos = {
               <form id="formVeiculo">
                 <input type="hidden" id="veiculoId">
                 <div class="row g-3">
-                  <div class="col-6">
+                  <div class="col-12">
                     <label class="form-label">Tipo *</label>
                     <div class="d-flex gap-2">
                       <button type="button" class="btn btn-outline-success flex-fill" id="btnEntrada" onclick="Veiculos.setTipo('ENTRADA')">
@@ -60,18 +74,27 @@ const Veiculos = {
                     </div>
                     <input type="hidden" id="veiculoTipo" value="ENTRADA">
                   </div>
+                  <div class="col-12">
+                    <label class="form-label">Veículo *</label>
+                    <select class="form-select" id="veiculoSelect" required onchange="Veiculos.selecionarVeiculo(this)">
+                      <option value="">Selecione o veículo...</option>
+                      ${veiculoOptions}
+                    </select>
+                  </div>
                   <div class="col-6">
-                    <label class="form-label">Placa *</label>
-                    <input type="text" class="form-control text-uppercase" id="veiculoPlaca" required placeholder="ABC-1234" maxlength="8"
-                      oninput="this.value=this.value.toUpperCase()">
+                    <label class="form-label">Placa</label>
+                    <input type="text" class="form-control bg-light" id="veiculoPlaca" readonly placeholder="Preenchida automaticamente">
                   </div>
                   <div class="col-6">
                     <label class="form-label">Modelo</label>
-                    <input type="text" class="form-control" id="veiculoModelo" placeholder="Ex: Fiat Strada">
+                    <input type="text" class="form-control bg-light" id="veiculoModelo" readonly placeholder="Preenchido automaticamente">
                   </div>
-                  <div class="col-6">
+                  <div class="col-12">
                     <label class="form-label">Motorista *</label>
-                    <input type="text" class="form-control" id="veiculoMotorista" required placeholder="Nome do motorista">
+                    <select class="form-select" id="veiculoMotorista" required>
+                      <option value="">Selecione o motorista...</option>
+                      ${motoristaOptions}
+                    </select>
                   </div>
                   <div class="col-6">
                     <label class="form-label">Data *</label>
@@ -99,6 +122,12 @@ const Veiculos = {
     await this.carregar();
   },
 
+  selecionarVeiculo(select) {
+    const opt = select.selectedOptions[0];
+    document.getElementById('veiculoPlaca').value  = opt?.dataset.placa || '';
+    document.getElementById('veiculoModelo').value = opt?.text.split(' — ')[0] || '';
+  },
+
   setTipo(t) {
     document.getElementById('veiculoTipo').value = t;
     document.getElementById('btnEntrada').className = 'btn flex-fill ' + (t === 'ENTRADA' ? 'btn-success' : 'btn-outline-success');
@@ -113,7 +142,7 @@ const Veiculos = {
       this.renderTabela(this.dados);
       this.renderKpis();
     } catch (e) {
-      document.getElementById('tbodyVeiculos').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Erro ao carregar.</td></tr>`;
+      document.getElementById('tbodyVeiculos').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Erro ao carregar: ${e.message}</td></tr>`;
     } finally {
       Utils.showLoading(false);
     }
@@ -124,7 +153,7 @@ const Veiculos = {
     const tipo  = document.getElementById('filtroTipoV')?.value || '';
     const data  = document.getElementById('filtroDataV')?.value || '';
     this.renderTabela(this.dados.filter(v =>
-      (!busca || (v.placa + v.motorista).toLowerCase().includes(busca)) &&
+      (!busca || (v.placa + v.motorista + v.modelo).toLowerCase().includes(busca)) &&
       (!tipo  || v.tipo === tipo) &&
       (!data  || v.data === data)
     ));
@@ -139,8 +168,8 @@ const Veiculos = {
     tbody.innerHTML = dados.map(v => `
       <tr>
         <td><span class="badge ${v.tipo === 'ENTRADA' ? 'bg-success' : 'bg-danger'}">${v.tipo === 'ENTRADA' ? '↓ Entrada' : '↑ Saída'}</span></td>
-        <td class="fw-bold">${v.placa || '—'}</td>
         <td>${v.modelo || '—'}</td>
+        <td class="fw-bold">${v.placa || '—'}</td>
         <td>${v.motorista || '—'}</td>
         <td>${Utils.formatDate(v.data)}</td>
         <td>${v.horario || '—'}</td>
@@ -166,13 +195,23 @@ const Veiculos = {
 
   abrirModal(dados = null) {
     const agora = new Date();
-    document.getElementById('veiculoId').value       = dados?.id        || '';
-    document.getElementById('veiculoPlaca').value    = dados?.placa     || '';
-    document.getElementById('veiculoModelo').value   = dados?.modelo    || '';
-    document.getElementById('veiculoMotorista').value= dados?.motorista || '';
-    document.getElementById('veiculoData').value     = dados?.data      || agora.toISOString().split('T')[0];
-    document.getElementById('veiculoHorario').value  = dados?.horario   || agora.toTimeString().slice(0,5);
-    document.getElementById('veiculoObs').value      = dados?.obs       || '';
+    document.getElementById('veiculoId').value        = dados?.id        || '';
+    document.getElementById('veiculoData').value      = dados?.data      || agora.toISOString().split('T')[0];
+    document.getElementById('veiculoHorario').value   = dados?.horario   || agora.toTimeString().slice(0, 5);
+    document.getElementById('veiculoObs').value       = dados?.obs       || '';
+    document.getElementById('veiculoPlaca').value     = dados?.placa     || '';
+    document.getElementById('veiculoModelo').value    = dados?.modelo    || '';
+    document.getElementById('veiculoMotorista').value = dados?.motorista || '';
+
+    // Seleciona veículo na lista suspensa pelo modelo
+    const sel = document.getElementById('veiculoSelect');
+    if (dados?.modelo) {
+      const opt = [...sel.options].find(o => o.text.startsWith(dados.modelo));
+      sel.value = opt ? opt.value : '';
+    } else {
+      sel.value = '';
+    }
+
     this.setTipo(dados?.tipo || 'ENTRADA');
     new bootstrap.Modal(document.getElementById('modalVeiculo')).show();
   },
@@ -185,6 +224,9 @@ const Veiculos = {
   async salvar() {
     const form = document.getElementById('formVeiculo');
     if (!form.reportValidity()) return;
+    if (!document.getElementById('veiculoSelect').value) {
+      Utils.showToast('Selecione o veículo.', 'warning'); return;
+    }
     const payload = {
       id:        document.getElementById('veiculoId').value,
       placa:     document.getElementById('veiculoPlaca').value,
