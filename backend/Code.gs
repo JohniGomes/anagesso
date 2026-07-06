@@ -127,12 +127,19 @@ function sheetToObjects(sheet, keys) {
     const obj = {};
     keys.forEach((k, i) => {
       let val = row[i] !== undefined ? row[i] : '';
-      // Converte objetos Date do Sheets para string ISO yyyy-MM-dd
+      // Converte objetos Date do Sheets
       if (val instanceof Date && !isNaN(val.getTime())) {
         const y = val.getFullYear();
-        const m = String(val.getMonth() + 1).padStart(2, '0');
-        const d = String(val.getDate()).padStart(2, '0');
-        val = y + '-' + m + '-' + d;
+        // Ano 1899/1900 = Sheets armazenou como horário (fração de dia)
+        if (y <= 1900) {
+          const hh = String(val.getHours()).padStart(2, '0');
+          const mm = String(val.getMinutes()).padStart(2, '0');
+          val = hh + ':' + mm;
+        } else {
+          const m = String(val.getMonth() + 1).padStart(2, '0');
+          const d = String(val.getDate()).padStart(2, '0');
+          val = y + '-' + m + '-' + d;
+        }
       }
       obj[k] = val;
     });
