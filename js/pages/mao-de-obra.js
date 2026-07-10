@@ -1,3 +1,32 @@
+/* ── CATEGORIAS DE MO (localStorage) ─────────────────────────
+   Categorias dinâmicas de custo de mão de obra.
+────────────────────────────────────────────────────────────── */
+const CategoriasMO = {
+  KEY: 'anagesso_categorias_mo',
+  _padrao: ['Mão de Obra', 'RT Arquiteta', 'Nota Fiscal', 'Outros'],
+
+  get() {
+    const raw = localStorage.getItem(this.KEY);
+    if (raw) return JSON.parse(raw);
+    this.set([...this._padrao]);
+    return [...this._padrao];
+  },
+
+  set(lista) { localStorage.setItem(this.KEY, JSON.stringify(lista)); },
+
+  add(nome) {
+    nome = nome.trim();
+    if (!nome) return false;
+    const lista = this.get();
+    if (lista.some(c => c.toLowerCase() === nome.toLowerCase())) return false;
+    lista.push(nome);
+    this.set(lista);
+    return true;
+  },
+
+  remove(nome) { this.set(this.get().filter(c => c !== nome)); },
+};
+
 /* ── FUNCIONÁRIOS (localStorage) ─────────────────────────────
    Usa CONFIG.funcionarios como lista padrão na primeira vez.
    Depois persiste em localStorage para permitir add/remove.
@@ -48,38 +77,49 @@ const MaoDeObra = {
 
   _renderHtml(mesAtual) {
     const funcs = Funcionarios.get();
+    const cats  = CategoriasMO.get();
     document.getElementById('content').innerHTML = `
       <!-- Filtros -->
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body py-3">
           <div class="row g-2 align-items-end">
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
               <label class="form-label mb-1 small fw-semibold">Funcionário</label>
               <select class="form-select form-select-sm" id="filtroFunc" onchange="MaoDeObra.aplicarFiltros()">
                 <option value="">Todos</option>
                 ${funcs.map(f => `<option value="${f}">${f}</option>`).join('')}
               </select>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
+              <label class="form-label mb-1 small fw-semibold">Categoria</label>
+              <select class="form-select form-select-sm" id="filtroCategoria" onchange="MaoDeObra.aplicarFiltros()">
+                <option value="">Todas</option>
+                ${cats.map(c => `<option value="${c}">${c}</option>`).join('')}
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
               <label class="form-label mb-1 small fw-semibold">Mês</label>
               <input type="month" class="form-control form-control-sm" id="filtroMes" value="${mesAtual}"
                 onchange="MaoDeObra.buscar()">
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
               <label class="form-label mb-1 small fw-semibold">Semana</label>
               <select class="form-select form-select-sm" id="filtroSemana" onchange="MaoDeObra.aplicarFiltros()">
                 <option value="">Todas as semanas</option>
               </select>
             </div>
-            <div class="col-6 col-md-3 d-flex gap-2 flex-wrap">
+            <div class="col-12 col-md-4 d-flex gap-2 flex-wrap">
               <button class="btn btn-primary btn-sm flex-fill" onclick="MaoDeObra.buscar()">
                 <i class="bi bi-search me-1"></i>Buscar
               </button>
               <button class="btn btn-success btn-sm flex-fill" onclick="MaoDeObra.abrirModal()">
                 <i class="bi bi-plus-lg me-1"></i>Novo
               </button>
-              <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="MaoDeObra.abrirModalFuncionarios()" title="Gerenciar Funcionários">
-                <i class="bi bi-people-fill me-1"></i><span class="d-none d-md-inline">Funcionários</span><span class="d-md-none">Func.</span>
+              <button class="btn btn-outline-secondary btn-sm" onclick="MaoDeObra.abrirModalFuncionarios()" title="Gerenciar Funcionários">
+                <i class="bi bi-people-fill"></i>
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="MaoDeObra.abrirModalCategorias()" title="Gerenciar Categorias">
+                <i class="bi bi-tags-fill"></i>
               </button>
             </div>
           </div>
@@ -103,12 +143,12 @@ const MaoDeObra = {
             <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th>Data</th><th>Dia</th><th>Funcionário</th><th>Serviço</th>
+                  <th>Data</th><th>Dia</th><th>Funcionário</th><th>Categoria</th><th>Serviço</th>
                   <th class="text-end">Valor</th><th class="text-end">Vale</th>
                   <th class="text-end">Saldo Dia</th><th class="text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody id="tbodyMO"><tr><td colspan="8" class="text-center py-4 text-muted">Carregando...</td></tr></tbody>
+              <tbody id="tbodyMO"><tr><td colspan="9" class="text-center py-4 text-muted">Carregando...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -133,7 +173,13 @@ const MaoDeObra = {
                     <label class="form-label">Data *</label>
                     <input type="date" class="form-control" id="moData" required value="${Utils.today()}" onchange="MaoDeObra.atualizarDia()">
                   </div>
-                  <div class="col-12">
+                  <div class="col-md-6">
+                    <label class="form-label">Categoria *</label>
+                    <select class="form-select" id="moCategoria" required>
+                      ${cats.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="col-md-6">
                     <label class="form-label">Dia da Semana</label>
                     <input type="text" class="form-control" id="moDia" readonly>
                   </div>
@@ -184,7 +230,74 @@ const MaoDeObra = {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Modal Gerenciar Categorias -->
+      <div class="modal fade" id="modalCategorias" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title"><i class="bi bi-tags-fill me-2"></i>Categorias de Custo</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+              <ul class="list-group mb-3" id="listaCategorias"></ul>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control" id="novaCategoria" placeholder="Ex: RT Engenheiro"
+                  onkeydown="if(event.key==='Enter') MaoDeObra.adicionarCategoria()">
+                <button class="btn btn-success" onclick="MaoDeObra.adicionarCategoria()">
+                  <i class="bi bi-plus-lg"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>`;
+  },
+
+  /* ── Gerenciar Categorias ──────────────────────────── */
+  abrirModalCategorias() {
+    this._renderListaCategorias();
+    new bootstrap.Modal(document.getElementById('modalCategorias')).show();
+  },
+
+  _renderListaCategorias() {
+    const lista = CategoriasMO.get();
+    document.getElementById('listaCategorias').innerHTML = lista.map(c => `
+      <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+        <span style="font-size:13px">${c}</span>
+        <button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="MaoDeObra.removerCategoria('${c}')" title="Remover">
+          <i class="bi bi-dash-lg"></i>
+        </button>
+      </li>`).join('') || '<li class="list-group-item text-muted text-center py-3">Nenhuma categoria</li>';
+  },
+
+  adicionarCategoria() {
+    const inp  = document.getElementById('novaCategoria');
+    const nome = inp.value.trim();
+    if (!nome) return;
+    if (!CategoriasMO.add(nome)) { Utils.showToast('Categoria já existe!', 'warning'); return; }
+    inp.value = '';
+    this._renderListaCategorias();
+    this._atualizarSelectsCategorias();
+    Utils.showToast(`"${nome}" adicionada!`);
+  },
+
+  removerCategoria(nome) {
+    if (!Utils.confirm(`Remover categoria "${nome}"?\n\nLançamentos existentes não serão afetados.`)) return;
+    CategoriasMO.remove(nome);
+    this._renderListaCategorias();
+    this._atualizarSelectsCategorias();
+    Utils.showToast(`"${nome}" removida.`);
+  },
+
+  _atualizarSelectsCategorias() {
+    const cats = CategoriasMO.get();
+    const opts = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    const filtro = document.getElementById('filtroCategoria');
+    const modal  = document.getElementById('moCategoria');
+    if (filtro) filtro.innerHTML = `<option value="">Todas</option>${opts}`;
+    if (modal)  modal.innerHTML  = opts;
   },
 
   /* ── Gerenciar Funcionários ─────────────────────────── */
@@ -269,12 +382,14 @@ const MaoDeObra = {
 
   aplicarFiltros() {
     this.atualizarSemanasSelect();
-    const func   = document.getElementById('filtroFunc')?.value    || '';
-    const mes    = document.getElementById('filtroMes')?.value     || '';
+    const func   = document.getElementById('filtroFunc')?.value      || '';
+    const cat    = document.getElementById('filtroCategoria')?.value || '';
+    const mes    = document.getElementById('filtroMes')?.value       || '';
     const semIdx = document.getElementById('filtroSemana')?.value;
     let dados    = [...this.dados];
 
     if (func) dados = dados.filter(r => r.funcionario === func);
+    if (cat)  dados = dados.filter(r => r.categoria   === cat);
 
     if (semIdx !== '' && semIdx !== undefined) {
       const semanas = this.calcularSemanas(mes);
@@ -324,17 +439,20 @@ const MaoDeObra = {
     const dados = this.dadosFiltrados;
     document.getElementById('totalRegistros').textContent = dados.length;
     if (!dados.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhum lançamento encontrado.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Nenhum lançamento encontrado.</td></tr>';
       return;
     }
+    const badgeCat = { 'Mão de Obra': 'bg-primary', 'RT Arquiteta': 'bg-purple', 'Nota Fiscal': 'bg-info text-dark', 'Outros': 'bg-secondary' };
     tbody.innerHTML = [...dados]
       .sort((a, b) => a.data.localeCompare(b.data))
       .map(r => {
-        const total = (parseFloat(r.valor) || 0) - (parseFloat(r.vale) || 0);
+        const total   = (parseFloat(r.valor) || 0) - (parseFloat(r.vale) || 0);
+        const catBadge = badgeCat[r.categoria] || 'bg-secondary';
         return `<tr>
           <td>${Utils.formatDate(r.data)}</td>
           <td>${r.dia || ''}</td>
           <td><span class="badge bg-primary">${r.funcionario}</span></td>
+          <td><span class="badge ${catBadge}">${r.categoria || '—'}</span></td>
           <td>${r.servico || '—'}</td>
           <td class="text-end">${Utils.formatCurrency(r.valor)}</td>
           <td class="text-end text-warning">${Utils.formatCurrency(r.vale)}</td>
@@ -390,6 +508,7 @@ const MaoDeObra = {
     document.getElementById('moId').value          = dados?.id          || '';
     document.getElementById('moFuncionario').value = dados?.funcionario || Funcionarios.get()[0] || '';
     document.getElementById('moData').value        = dados?.data        || Utils.today();
+    document.getElementById('moCategoria').value   = dados?.categoria   || CategoriasMO.get()[0] || '';
     document.getElementById('moServico').value     = dados?.servico     || '';
     document.getElementById('moValor').value       = dados?.valor       || 0;
     document.getElementById('moVale').value        = dados?.vale        || 0;
@@ -411,6 +530,7 @@ const MaoDeObra = {
       funcionario: document.getElementById('moFuncionario').value,
       data:        document.getElementById('moData').value,
       dia:         Utils.diaSemana(document.getElementById('moData').value),
+      categoria:   document.getElementById('moCategoria').value,
       servico:     document.getElementById('moServico').value,
       valor:       document.getElementById('moValor').value,
       vale:        document.getElementById('moVale').value,

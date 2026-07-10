@@ -375,8 +375,8 @@ function obraSchema() {
 
 function maoObraSchema() {
   return {
-    headers: ['id', 'funcionario', 'data', 'dia', 'servico', 'valor', 'vale'],
-    keys:    ['id', 'funcionario', 'data', 'dia', 'servico', 'valor', 'vale'],
+    headers: ['id', 'funcionario', 'data', 'dia', 'categoria', 'servico', 'valor', 'vale'],
+    keys:    ['id', 'funcionario', 'data', 'dia', 'categoria', 'servico', 'valor', 'vale'],
   };
 }
 
