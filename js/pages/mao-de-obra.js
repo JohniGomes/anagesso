@@ -53,25 +53,39 @@ const MaoDeObra = {
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body py-3">
           <div class="row g-2 align-items-end">
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
               <label class="form-label mb-1 small fw-semibold">Funcionário</label>
               <select class="form-select form-select-sm" id="filtroFunc" onchange="MaoDeObra.aplicarFiltros()">
                 <option value="">Todos</option>
                 ${funcs.map(f => `<option value="${f}">${f}</option>`).join('')}
               </select>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
+              <label class="form-label mb-1 small fw-semibold">Período</label>
+              <select class="form-select form-select-sm" id="filtroPeriodoTipo" onchange="MaoDeObra.alternarPeriodo()">
+                <option value="mes">Por mês</option>
+                <option value="personalizado">Personalizado</option>
+              </select>
+            </div>
+            <div id="campoPeriodoMes" class="col-6 col-md-2">
               <label class="form-label mb-1 small fw-semibold">Mês</label>
               <input type="month" class="form-control form-control-sm" id="filtroMes" value="${mesAtual}"
                 onchange="MaoDeObra.buscar()">
             </div>
-            <div class="col-6 col-md-3">
+            <div id="campoPeriodoCustom" class="col-12 col-md-4 d-none">
+              <label class="form-label mb-1 small fw-semibold">De / Até</label>
+              <div class="d-flex gap-1">
+                <input type="date" class="form-control form-control-sm" id="filtroDtIni" placeholder="De">
+                <input type="date" class="form-control form-control-sm" id="filtroDtFim" placeholder="Até">
+              </div>
+            </div>
+            <div class="col-6 col-md-2">
               <label class="form-label mb-1 small fw-semibold">Semana</label>
               <select class="form-select form-select-sm" id="filtroSemana" onchange="MaoDeObra.aplicarFiltros()">
                 <option value="">Todas as semanas</option>
               </select>
             </div>
-            <div class="col-6 col-md-3 d-flex gap-2 flex-wrap">
+            <div class="col-12 col-md-2 d-flex gap-2 flex-wrap">
               <button class="btn btn-primary btn-sm flex-fill" onclick="MaoDeObra.buscar()">
                 <i class="bi bi-search me-1"></i>Buscar
               </button>
@@ -259,6 +273,14 @@ const MaoDeObra = {
     return semanas;
   },
 
+  alternarPeriodo() {
+    const tipo = document.getElementById('filtroPeriodoTipo')?.value;
+    const ehCustom = tipo === 'personalizado';
+    document.getElementById('campoPeriodoMes').classList.toggle('d-none', ehCustom);
+    document.getElementById('campoPeriodoCustom').classList.toggle('d-none', !ehCustom);
+    document.getElementById('filtroSemana').closest('.col-6, .col-md-2').classList.toggle('d-none', ehCustom);
+  },
+
   atualizarSemanasSelect() {
     const mes = document.getElementById('filtroMes')?.value;
     const sel = document.getElementById('filtroSemana');
@@ -306,10 +328,14 @@ const MaoDeObra = {
 
   /* ── Busca / CRUD ───────────────────────────────────── */
   async buscar() {
-    const mes = document.getElementById('filtroMes')?.value || '';
+    const tipo  = document.getElementById('filtroPeriodoTipo')?.value || 'mes';
+    const mes   = document.getElementById('filtroMes')?.value  || '';
+    const dtIni = document.getElementById('filtroDtIni')?.value || '';
+    const dtFim = document.getElementById('filtroDtFim')?.value || '';
+    const filtros = tipo === 'personalizado' ? { dtIni, dtFim } : { mes };
     try {
       Utils.showLoading(true);
-      this.dados = await Api.getMaoDeObra({ mes });
+      this.dados = await Api.getMaoDeObra(filtros);
       this.atualizarSemanasSelect();
       this.aplicarFiltros();
     } catch (e) {
@@ -464,16 +490,24 @@ const MaoDeObra = {
     const saldo      = totalBruto - totalVale;
 
     // Formata período
-    const mesLabel = mes
-      ? new Date(mes + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-      : 'Período selecionado';
-
-    const semIdx = document.getElementById('filtroSemana')?.value;
-    let periodoLabel = mesLabel;
-    if (semIdx !== '' && semIdx !== undefined) {
-      const sems = this.calcularSemanas(mes);
-      const sem  = sems[parseInt(semIdx)];
-      if (sem) periodoLabel = `Semana ${sem.label} — ${mesLabel}`;
+    const tipo  = document.getElementById('filtroPeriodoTipo')?.value || 'mes';
+    const dtIni = document.getElementById('filtroDtIni')?.value || '';
+    const dtFim = document.getElementById('filtroDtFim')?.value || '';
+    let periodoLabel;
+    if (tipo === 'personalizado') {
+      const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '?';
+      periodoLabel = `${fmt(dtIni)} a ${fmt(dtFim)}`;
+    } else {
+      const mesLabel = mes
+        ? new Date(mes + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+        : 'Período selecionado';
+      const semIdx = document.getElementById('filtroSemana')?.value;
+      periodoLabel = mesLabel;
+      if (semIdx !== '' && semIdx !== undefined) {
+        const sems = this.calcularSemanas(mes);
+        const sem  = sems[parseInt(semIdx)];
+        if (sem) periodoLabel = `Semana ${sem.label} — ${mesLabel}`;
+      }
     }
 
     const { jsPDF } = window.jspdf;

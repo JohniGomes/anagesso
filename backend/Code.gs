@@ -216,8 +216,9 @@ function getMaoDeObra(params) {
 
   return all.filter(r => {
     if (params.funcionario && r.funcionario !== params.funcionario) return false;
-    if (params.mes) {
-      // r.data agora é sempre string ISO "yyyy-MM-dd" após sheetToObjects
+    if (params.dtIni && String(r.data) < params.dtIni) return false;
+    if (params.dtFim && String(r.data) > params.dtFim) return false;
+    if (params.mes && !params.dtIni && !params.dtFim) {
       const rowMes = String(r.data).substring(0, 7);
       if (rowMes !== params.mes) return false;
     }
