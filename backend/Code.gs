@@ -368,15 +368,15 @@ function itemSchema() {
 
 function obraSchema() {
   return {
-    headers: ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens', 'pagamentos'],
-    keys:    ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens', 'pagamentos'],
+    headers: ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens', 'pagamentos', 'custosExtras'],
+    keys:    ['id', 'nome', 'dtInicio', 'dtEntrega', 'fase', 'valorOrcamento', 'valorFechado', 'valorPago', 'valorReceber', 'variaveis', 'material', 'maoDeObra', 'custoObra', 'lucro', 'itens', 'pagamentos', 'custosExtras'],
   };
 }
 
 function maoObraSchema() {
   return {
-    headers: ['id', 'funcionario', 'data', 'dia', 'categoria', 'servico', 'valor', 'vale'],
-    keys:    ['id', 'funcionario', 'data', 'dia', 'categoria', 'servico', 'valor', 'vale'],
+    headers: ['id', 'funcionario', 'data', 'dia', 'servico', 'valor', 'vale'],
+    keys:    ['id', 'funcionario', 'data', 'dia', 'servico', 'valor', 'vale'],
   };
 }
 
