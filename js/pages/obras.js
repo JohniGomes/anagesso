@@ -1,9 +1,33 @@
+/* ── Categorias de Custos Extras (localStorage) ───────────── */
+const CustosExtrasCats = {
+  KEY: 'anagesso_custos_extras_cats',
+  _padrao: ['RT Arquiteta', 'Nota Fiscal', 'Aluguel Equipamento', 'Transporte', 'Outros'],
+
+  get() {
+    const raw = localStorage.getItem(this.KEY);
+    if (raw) return JSON.parse(raw);
+    this.set([...this._padrao]);
+    return [...this._padrao];
+  },
+  set(l) { localStorage.setItem(this.KEY, JSON.stringify(l)); },
+  add(nome) {
+    nome = nome.trim();
+    if (!nome) return false;
+    const l = this.get();
+    if (l.some(c => c.toLowerCase() === nome.toLowerCase())) return false;
+    l.push(nome); this.set(l); return true;
+  },
+  remove(nome) { this.set(this.get().filter(c => c !== nome)); },
+};
+
 const Obras = {
   dados: [],
   itensBase: [],
   itensSelecionados: [],
   pagamentos: [],      // histórico de pagamentos da obra em edição
-  editandoPagIdx: -1, // índice do pagamento sendo editado (-1 = novo)
+  custosExtras: [],    // custos extras (RT, NF, etc.)
+  editandoPagIdx: -1,
+  editandoCustoIdx: -1,
 
   async render() {
     document.getElementById('pageTitle').textContent = 'Fechamento de Obras';
@@ -148,6 +172,79 @@ const Obras = {
                           </tr>
                         </tfoot>
                       </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Custos Extras -->
+                <h6 class="fw-semibold text-primary mb-2 d-flex align-items-center gap-2">
+                  <i class="bi bi-receipt me-1"></i>Custos Extras
+                  <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-secondary" onclick="Obras.abrirGerenciarCats()" title="Gerenciar categorias">
+                    <i class="bi bi-tags-fill"></i>
+                  </button>
+                </h6>
+                <div class="card border mb-4">
+                  <div class="card-body p-3">
+                    <div class="row g-2 align-items-end mb-3">
+                      <div class="col-md-3">
+                        <label class="form-label small mb-1">Categoria</label>
+                        <select class="form-select form-select-sm" id="custoCategoria">
+                          ${CustosExtrasCats.get().map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small mb-1">Descrição</label>
+                        <input type="text" class="form-control form-control-sm" id="custoDesc" placeholder="Ex: RT Arq. Maria...">
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">Valor (R$)</label>
+                        <input type="number" class="form-control form-control-sm" id="custoValor" step="0.01" min="0" placeholder="0,00">
+                      </div>
+                      <div class="col-md-4 d-flex gap-1">
+                        <button type="button" class="btn btn-success btn-sm flex-fill" onclick="Obras.adicionarCusto()">
+                          <i class="bi bi-check-lg"></i> Adicionar
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelarCusto" style="display:none" onclick="Obras.cancelarEdicaoCusto()">
+                          <i class="bi bi-x-lg"></i>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                          <tr><th>Categoria</th><th>Descrição</th><th class="text-end">Valor</th><th class="text-center" style="width:80px">Ações</th></tr>
+                        </thead>
+                        <tbody id="tbodyCustos">
+                          <tr><td colspan="4" class="text-muted text-center py-2 small">Nenhum custo extra registrado.</td></tr>
+                        </tbody>
+                        <tfoot>
+                          <tr class="fw-bold table-secondary">
+                            <td colspan="2">Total Custos Extras</td>
+                            <td class="text-end text-danger" id="totalCustosFoot">R$ 0,00</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Modal Gerenciar Categorias -->
+                <div class="modal fade" id="modalCustoCats" tabindex="-1">
+                  <div class="modal-dialog modal-sm">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-tags-fill me-2"></i>Categorias de Custo</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                      </div>
+                      <div class="modal-body p-3">
+                        <ul class="list-group mb-3" id="listaCustoCats"></ul>
+                        <div class="input-group input-group-sm">
+                          <input type="text" class="form-control" id="novaCustoCat" placeholder="Ex: Licença, Projeto..."
+                            onkeydown="if(event.key==='Enter') Obras.adicionarCat()">
+                          <button class="btn btn-success" onclick="Obras.adicionarCat()"><i class="bi bi-plus-lg"></i></button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -427,17 +524,126 @@ const Obras = {
     this.recalcular();
   },
 
+  // ── Custos Extras ─────────────────────────────────────────────
+  adicionarCusto() {
+    const categoria = document.getElementById('custoCategoria').value;
+    const desc      = document.getElementById('custoDesc').value.trim();
+    const valor     = parseFloat(document.getElementById('custoValor').value);
+    if (!categoria) return Utils.showToast('Selecione uma categoria.', 'warning');
+    if (!valor || valor <= 0) return Utils.showToast('Informe um valor válido.', 'warning');
+
+    if (this.editandoCustoIdx >= 0) {
+      this.custosExtras[this.editandoCustoIdx] = { categoria, desc, valor };
+      this.editandoCustoIdx = -1;
+      document.getElementById('btnCancelarCusto').style.display = 'none';
+    } else {
+      this.custosExtras.push({ categoria, desc, valor });
+    }
+    document.getElementById('custoDesc').value  = '';
+    document.getElementById('custoValor').value = '';
+    this.renderCustos();
+  },
+
+  editarCusto(idx) {
+    const c = this.custosExtras[idx];
+    document.getElementById('custoCategoria').value = c.categoria;
+    document.getElementById('custoDesc').value      = c.desc || '';
+    document.getElementById('custoValor').value     = c.valor;
+    this.editandoCustoIdx = idx;
+    document.getElementById('btnCancelarCusto').style.display = '';
+    document.getElementById('custoValor').focus();
+  },
+
+  cancelarEdicaoCusto() {
+    this.editandoCustoIdx = -1;
+    document.getElementById('custoDesc').value  = '';
+    document.getElementById('custoValor').value = '';
+    document.getElementById('btnCancelarCusto').style.display = 'none';
+  },
+
+  removerCusto(idx) {
+    this.custosExtras.splice(idx, 1);
+    this.renderCustos();
+  },
+
+  renderCustos() {
+    const tbody = document.getElementById('tbodyCustos');
+    if (!tbody) return;
+    const total = this.custosExtras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0);
+    if (!this.custosExtras.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2 small">Nenhum custo extra registrado.</td></tr>';
+    } else {
+      tbody.innerHTML = this.custosExtras.map((c, idx) => `
+        <tr>
+          <td class="small fw-semibold">${c.categoria}</td>
+          <td class="small text-muted">${c.desc || '—'}</td>
+          <td class="text-end text-danger fw-semibold">${Utils.formatCurrency(c.valor)}</td>
+          <td class="text-center" style="white-space:nowrap">
+            <button class="btn btn-link text-primary p-0 btn-sm me-2" onclick="Obras.editarCusto(${idx})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-link text-danger p-0 btn-sm" onclick="Obras.removerCusto(${idx})"><i class="bi bi-x-circle"></i></button>
+          </td>
+        </tr>`).join('');
+    }
+    if (document.getElementById('totalCustosFoot'))
+      document.getElementById('totalCustosFoot').textContent = Utils.formatCurrency(total);
+    this.recalcular();
+  },
+
+  // ── Gerenciar Categorias ──────────────────────────────────────
+  abrirGerenciarCats() {
+    this._renderListaCats();
+    new bootstrap.Modal(document.getElementById('modalCustoCats')).show();
+  },
+
+  _renderListaCats() {
+    const lista = document.getElementById('listaCustoCats');
+    if (!lista) return;
+    const cats = CustosExtrasCats.get();
+    lista.innerHTML = cats.map(c => `
+      <li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+        <span class="small">${c}</span>
+        <button class="btn btn-link text-danger btn-sm p-0" onclick="Obras._removerCat('${c.replace(/'/g, "\\'")}')">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </li>`).join('') || '<li class="list-group-item text-muted small">Nenhuma categoria.</li>';
+  },
+
+  adicionarCat() {
+    const inp = document.getElementById('novaCustoCat');
+    if (!CustosExtrasCats.add(inp.value)) {
+      Utils.showToast('Categoria já existe ou inválida.', 'warning');
+      return;
+    }
+    inp.value = '';
+    this._renderListaCats();
+    this._atualizarSelectCat();
+  },
+
+  _removerCat(nome) {
+    CustosExtrasCats.remove(nome);
+    this._renderListaCats();
+    this._atualizarSelectCat();
+  },
+
+  _atualizarSelectCat() {
+    const sel = document.getElementById('custoCategoria');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = CustosExtrasCats.get().map(c => `<option value="${c}"${c===cur?' selected':''}>${c}</option>`).join('');
+  },
+
   recalcular() {
-    const orcamento = parseFloat(document.getElementById('obraOrcamento')?.value) || 0;
-    const fechado   = parseFloat(document.getElementById('obraFechado')?.value)   || 0;
-    const mo        = parseFloat(document.getElementById('obraMO')?.value)        || 0;
-    const material  = parseFloat(document.getElementById('obraMaterial')?.value)  || 0;
-    const variaveis = parseFloat(document.getElementById('obraVariaveis')?.value) || 0;
-    const pago      = this.pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+    const orcamento   = parseFloat(document.getElementById('obraOrcamento')?.value) || 0;
+    const fechado     = parseFloat(document.getElementById('obraFechado')?.value)   || 0;
+    const mo          = parseFloat(document.getElementById('obraMO')?.value)        || 0;
+    const material    = parseFloat(document.getElementById('obraMaterial')?.value)  || 0;
+    const variaveis   = parseFloat(document.getElementById('obraVariaveis')?.value) || 0;
+    const pago        = this.pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+    const extrasTotal = this.custosExtras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0);
 
     const receber = fechado - pago;
-    const custo   = mo + material + variaveis;
-    const lucro   = orcamento - mo - material - variaveis;
+    const custo   = mo + material + variaveis + extrasTotal;
+    const lucro   = orcamento - custo;
 
     if (document.getElementById('obraReceber'))    document.getElementById('obraReceber').value     = Utils.formatCurrency(receber);
     if (document.getElementById('obraCusto'))      document.getElementById('obraCusto').textContent = Utils.formatCurrency(custo);
@@ -452,10 +658,13 @@ const Obras = {
   abrirModal(dados = null) {
     this.itensSelecionados = [];
     this.pagamentos        = [];
+    this.custosExtras      = [];
     this.editandoPagIdx    = -1;
+    this.editandoCustoIdx  = -1;
 
-    if (dados?.itens) { try { this.itensSelecionados = JSON.parse(dados.itens); } catch (_) {} }
-    if (dados?.pagamentos) { try { this.pagamentos = JSON.parse(dados.pagamentos); } catch (_) {} }
+    if (dados?.itens)        { try { this.itensSelecionados = JSON.parse(dados.itens);        } catch (_) {} }
+    if (dados?.pagamentos)   { try { this.pagamentos        = JSON.parse(dados.pagamentos);   } catch (_) {} }
+    if (dados?.custosExtras) { try { this.custosExtras      = JSON.parse(dados.custosExtras); } catch (_) {} }
 
     document.getElementById('obraId').value       = dados?.id             || '';
     document.getElementById('obraNome').value      = dados?.nome          || '';
@@ -469,11 +678,16 @@ const Obras = {
     document.getElementById('pagData').value       = '';
     document.getElementById('pagValor').value      = '';
     document.getElementById('pagObs').value        = '';
-    document.getElementById('btnCancelarPag').style.display = 'none';
+    document.getElementById('btnCancelarPag').style.display  = 'none';
+    document.getElementById('custoDesc').value  = '';
+    document.getElementById('custoValor').value = '';
+    document.getElementById('btnCancelarCusto').style.display = 'none';
+    this._atualizarSelectCat();
 
     this.preencherSelectItens();
     this.renderItensModal();
     this.renderPagamentos();
+    this.renderCustos();
 
     if (!this.itensSelecionados.length) {
       document.getElementById('obraMaterial').value = dados?.material || 0;
@@ -497,9 +711,10 @@ const Obras = {
     const mo        = parseFloat(document.getElementById('obraMO').value)        || 0;
     const material  = parseFloat(document.getElementById('obraMaterial').value)  || 0;
     const variaveis = parseFloat(document.getElementById('obraVariaveis').value) || 0;
-    const pago      = this.pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
-    const custo     = mo + material + variaveis;
-    const lucro     = orcamento - mo - material - variaveis;
+    const pago        = this.pagamentos.reduce((s, p) => s + (parseFloat(p.valor) || 0), 0);
+    const extrasTotal = this.custosExtras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0);
+    const custo       = mo + material + variaveis + extrasTotal;
+    const lucro       = orcamento - custo;
 
     const payload = {
       id:             document.getElementById('obraId').value,
@@ -518,6 +733,7 @@ const Obras = {
       lucro,
       itens:          JSON.stringify(this.itensSelecionados),
       pagamentos:     JSON.stringify(this.pagamentos),
+      custosExtras:   JSON.stringify(this.custosExtras),
     };
 
     try {
