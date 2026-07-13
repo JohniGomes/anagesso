@@ -33,11 +33,13 @@ const Obras = {
     document.getElementById('pageTitle').textContent = 'Fechamento de Obras';
     document.getElementById('content').innerHTML = `
       <div class="d-flex flex-wrap gap-2 mb-4">
-        <input type="text" class="form-control form-control-sm" id="buscaObra" placeholder="Buscar obra..." style="max-width:260px" oninput="Obras.filtrar()">
-        <select class="form-select form-select-sm" id="filtroFase" style="max-width:160px" onchange="Obras.filtrar()">
+        <input type="text" class="form-control form-control-sm" id="buscaObra" placeholder="Buscar obra..." style="max-width:220px" oninput="Obras.filtrar()">
+        <select class="form-select form-select-sm" id="filtroFase" style="max-width:150px" onchange="Obras.filtrar()">
           <option value="">Todas as fases</option>
           <option>ANDAMENTO</option><option>EXECUTADO</option><option>ORÇAMENTO</option>
         </select>
+        <input type="month" class="form-control form-control-sm" id="filtroMesObra" style="max-width:160px" onchange="Obras.filtrar()" title="Filtrar por mês de início">
+        <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('filtroMesObra').value='';Obras.filtrar();" title="Limpar filtro de mês"><i class="bi bi-x-lg"></i></button>
         <button class="btn btn-success btn-sm ms-auto" onclick="Obras.abrirModal()"><i class="bi bi-plus-lg me-1"></i>Nova Obra</button>
       </div>
 
@@ -366,11 +368,14 @@ const Obras = {
 
   filtrar() {
     const busca = document.getElementById('buscaObra')?.value.toLowerCase() || '';
-    const fase = document.getElementById('filtroFase')?.value || '';
+    const fase  = document.getElementById('filtroFase')?.value || '';
+    const mes   = document.getElementById('filtroMesObra')?.value || '';
     this.renderTabela(this.dados.filter(o =>
       (!busca || (o.nome || '').toLowerCase().includes(busca)) &&
-      (!fase || o.fase === fase)
+      (!fase  || o.fase === fase) &&
+      (!mes   || String(o.dtInicio).substring(0, 7) === mes)
     ));
+    this.renderKpis(mes, fase, busca);
   },
 
   renderTabela(dados) {
@@ -398,11 +403,17 @@ const Obras = {
     }).join('');
   },
 
-  renderKpis() {
-    const totalOrcamento = this.dados.reduce((s, o) => s + (parseFloat(o.valorOrcamento) || 0), 0);
-    const totalPago      = this.dados.reduce((s, o) => s + (parseFloat(o.valorPago)      || 0), 0);
-    const totalReceber   = this.dados.reduce((s, o) => s + (parseFloat(o.valorReceber)   || 0), 0);
-    const totalLucro     = this.dados.reduce((s, o) => s + (parseFloat(o.lucro)          || 0), 0);
+  renderKpis(mes, fase, busca) {
+    const src = (mes || fase || busca)
+      ? this.dados.filter(o =>
+          (!busca || (o.nome || '').toLowerCase().includes(busca)) &&
+          (!fase  || o.fase === fase) &&
+          (!mes   || String(o.dtInicio).substring(0, 7) === mes))
+      : this.dados;
+    const totalOrcamento = src.reduce((s, o) => s + (parseFloat(o.valorOrcamento) || 0), 0);
+    const totalPago      = src.reduce((s, o) => s + (parseFloat(o.valorPago)      || 0), 0);
+    const totalReceber   = src.reduce((s, o) => s + (parseFloat(o.valorReceber)   || 0), 0);
+    const totalLucro     = src.reduce((s, o) => s + (parseFloat(o.lucro)          || 0), 0);
     document.getElementById('obrasKpis').innerHTML = `
       <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Total Orçado</div><div class="fw-bold">${Utils.formatCurrency(totalOrcamento)}</div></div></div></div>
       <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Recebido</div><div class="fw-bold text-success">${Utils.formatCurrency(totalPago)}</div></div></div></div>
