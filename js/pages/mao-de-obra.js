@@ -79,11 +79,9 @@ const MaoDeObra = {
                 <input type="date" class="form-control form-control-sm" id="filtroDtFim" placeholder="Até">
               </div>
             </div>
-            <div class="col-6 col-md-2">
-              <label class="form-label mb-1 small fw-semibold">Semana</label>
-              <select class="form-select form-select-sm" id="filtroSemana" onchange="MaoDeObra.aplicarFiltros()">
-                <option value="">Todas as semanas</option>
-              </select>
+            <div id="campoSemanas" class="col-12 col-md-3">
+              <label class="form-label mb-1 small fw-semibold">Semanas</label>
+              <div id="filtroSemanas" class="d-flex flex-wrap gap-2 pt-1"></div>
             </div>
             <div class="col-12 col-md-2 d-flex gap-2 flex-wrap">
               <button class="btn btn-primary btn-sm flex-fill" onclick="MaoDeObra.buscar()">
@@ -278,39 +276,48 @@ const MaoDeObra = {
     const ehCustom = tipo === 'personalizado';
     document.getElementById('campoPeriodoMes').classList.toggle('d-none', ehCustom);
     document.getElementById('campoPeriodoCustom').classList.toggle('d-none', !ehCustom);
-    document.getElementById('filtroSemana').closest('.col-6, .col-md-2').classList.toggle('d-none', ehCustom);
+    document.getElementById('campoSemanas').classList.toggle('d-none', ehCustom);
+    if (!ehCustom) this.atualizarSemanasCheck();
   },
 
-  atualizarSemanasSelect() {
+  atualizarSemanasCheck() {
     const mes = document.getElementById('filtroMes')?.value;
-    const sel = document.getElementById('filtroSemana');
-    if (!sel) return;
+    const cont = document.getElementById('filtroSemanas');
+    if (!cont) return;
     const semanas = this.calcularSemanas(mes);
-    const atual = sel.value;
-    sel.innerHTML = '<option value="">Todas as semanas</option>' +
-      semanas.map((s, i) => `<option value="${i}" ${atual == i ? 'selected' : ''}>${s.label}</option>`).join('');
+    if (!semanas.length) { cont.innerHTML = '<span class="text-muted small">—</span>'; return; }
+    cont.innerHTML = semanas.map((s, i) => `
+      <div class="form-check form-check-inline m-0">
+        <input class="form-check-input" type="checkbox" id="semChk${i}" value="${i}"
+          onchange="MaoDeObra.aplicarFiltros()">
+        <label class="form-check-label small" for="semChk${i}">${s.label}</label>
+      </div>`).join('');
+  },
+
+  _semanasChecadas() {
+    return [...document.querySelectorAll('#filtroSemanas input[type=checkbox]:checked')]
+      .map(el => parseInt(el.value));
   },
 
   aplicarFiltros() {
-    this.atualizarSemanasSelect();
-    const func   = document.getElementById('filtroFunc')?.value || '';
-    const mes    = document.getElementById('filtroMes')?.value  || '';
-    const semIdx = document.getElementById('filtroSemana')?.value;
-    let dados    = [...this.dados];
+    this.atualizarSemanasCheck();
+    const func    = document.getElementById('filtroFunc')?.value || '';
+    const mes     = document.getElementById('filtroMes')?.value  || '';
+    const idxs    = this._semanasChecadas();
+    let dados     = [...this.dados];
 
     if (func) dados = dados.filter(r => r.funcionario === func);
 
-    if (semIdx !== '' && semIdx !== undefined) {
+    if (idxs.length) {
       const semanas = this.calcularSemanas(mes);
-      const sem = semanas[parseInt(semIdx)];
-      if (sem) dados = dados.filter(r => r.data >= sem.ini && r.data <= sem.fim);
+      const intervalos = idxs.map(i => semanas[i]).filter(Boolean);
+      dados = dados.filter(r => intervalos.some(s => r.data >= s.ini && r.data <= s.fim));
     }
 
     this.dadosFiltrados = dados;
     this.renderTabela();
     this.renderKpis();
 
-    // Mostra botão de recibo só quando há funcionário específico selecionado
     const btnRecibo = document.getElementById('btnReciboPdf');
     if (btnRecibo) btnRecibo.style.display = func ? 'inline-flex' : 'none';
   },
@@ -336,7 +343,7 @@ const MaoDeObra = {
     try {
       Utils.showLoading(true);
       this.dados = await Api.getMaoDeObra(filtros);
-      this.atualizarSemanasSelect();
+      this.atualizarSemanasCheck();
       this.aplicarFiltros();
     } catch (e) {
       Utils.showToast('Erro ao carregar dados: ' + e.message, 'error');
@@ -501,12 +508,12 @@ const MaoDeObra = {
       const mesLabel = mes
         ? new Date(mes + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
         : 'Período selecionado';
-      const semIdx = document.getElementById('filtroSemana')?.value;
+      const idxsSel = this._semanasChecadas();
       periodoLabel = mesLabel;
-      if (semIdx !== '' && semIdx !== undefined) {
-        const sems = this.calcularSemanas(mes);
-        const sem  = sems[parseInt(semIdx)];
-        if (sem) periodoLabel = `Semana ${sem.label} — ${mesLabel}`;
+      if (idxsSel.length) {
+        const sems   = this.calcularSemanas(mes);
+        const labels = idxsSel.map(i => sems[i]?.label).filter(Boolean);
+        if (labels.length) periodoLabel = `Semanas ${labels.join(' + ')} — ${mesLabel}`;
       }
     }
 
