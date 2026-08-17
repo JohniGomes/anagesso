@@ -84,12 +84,35 @@
     return json.data || [];
   }
 
+  // Campos numéricos por tabela
+  const NUMERIC_FIELDS = {
+    mao_de_obra: ['valor', 'vale'],
+    obras:       ['valorOrcamento','valorFechado','valorPago','valorReceber','variaveis','material','maoDeObra','custoObra','lucro'],
+    financeiro:  ['valor'],
+    orcamentos:  ['valorTotal'],
+    cobranca:    ['valorTotal'],
+    compras:     ['valorTotal'],
+    base_itens:  ['preco'],
+  };
+
+  function sanitize(table, rows) {
+    const nums = NUMERIC_FIELDS[table] || [];
+    return rows.map(row => {
+      const r = { ...row };
+      nums.forEach(f => {
+        if (r[f] === '' || r[f] === null || r[f] === undefined) r[f] = 0;
+        else r[f] = parseFloat(r[f]) || 0;
+      });
+      return r;
+    });
+  }
+
   async function insertBatch(table, rows) {
-    // Remove registros já existentes no Supabase para evitar conflito
     if (!rows.length) return;
+    const clean = sanitize(table, rows);
     const BATCH = 80;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const chunk = rows.slice(i, i + BATCH);
+    for (let i = 0; i < clean.length; i += BATCH) {
+      const chunk = clean.slice(i, i + BATCH);
       const { error } = await sb.from(table).upsert(chunk, { onConflict: 'id' });
       if (error) throw new Error(error.message);
     }
