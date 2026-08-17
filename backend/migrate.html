@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Migração GAS → Supabase</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 32px 16px; }
+    h1 { color: #f59e0b; font-size: 1.5rem; margin-bottom: 4px; }
+    p.sub { color: #94a3b8; font-size: 0.875rem; margin-bottom: 32px; }
+    .card { background: #1e293b; border-radius: 12px; padding: 24px; max-width: 680px; margin: 0 auto; }
+    .step { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+    .step:last-child { border-bottom: none; }
+    .badge { min-width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+    .badge.wait    { background: #334155; color: #94a3b8; }
+    .badge.running { background: #1d4ed8; color: #fff; animation: pulse 1s infinite; }
+    .badge.ok      { background: #16a34a; color: #fff; }
+    .badge.err     { background: #dc2626; color: #fff; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .count { margin-left: auto; font-size: 0.8rem; color: #64748b; white-space: nowrap; }
+    button { display: block; width: 100%; padding: 14px; margin-top: 24px; background: #f59e0b; color: #0f172a;
+             font-weight: 700; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; transition: opacity .2s; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    #log { margin-top: 20px; background: #0f172a; border-radius: 8px; padding: 12px; font-size: 0.78rem;
+           color: #94a3b8; max-height: 220px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
+    .done-msg { margin-top: 16px; padding: 12px 16px; background: #14532d; border-radius: 8px;
+                color: #4ade80; font-weight: 600; display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>🚀 Migração de Dados</h1>
+  <p class="sub">Google Sheets → Supabase · Clique em Migrar para iniciar</p>
+
+  <div id="steps">
+    <div class="step" id="s-clientes">   <div class="badge wait" id="b-clientes">→</div>   <span>Clientes</span>   <span class="count" id="c-clientes">—</span></div>
+    <div class="step" id="s-base_itens"> <div class="badge wait" id="b-base_itens">→</div>  <span>Base de Itens</span><span class="count" id="c-base_itens">—</span></div>
+    <div class="step" id="s-obras">      <div class="badge wait" id="b-obras">→</div>       <span>Obras</span>      <span class="count" id="c-obras">—</span></div>
+    <div class="step" id="s-mao_de_obra"><div class="badge wait" id="b-mao_de_obra">→</div> <span>Mão de Obra</span><span class="count" id="c-mao_de_obra">—</span></div>
+    <div class="step" id="s-orcamentos"> <div class="badge wait" id="b-orcamentos">→</div>  <span>Orçamentos</span> <span class="count" id="c-orcamentos">—</span></div>
+    <div class="step" id="s-financeiro"> <div class="badge wait" id="b-financeiro">→</div>  <span>Financeiro</span> <span class="count" id="c-financeiro">—</span></div>
+    <div class="step" id="s-veiculos">   <div class="badge wait" id="b-veiculos">→</div>    <span>Veículos</span>   <span class="count" id="c-veiculos">—</span></div>
+    <div class="step" id="s-cobranca">   <div class="badge wait" id="b-cobranca">→</div>    <span>Cobranças</span>  <span class="count" id="c-cobranca">—</span></div>
+    <div class="step" id="s-compras">    <div class="badge wait" id="b-compras">→</div>     <span>Compras</span>    <span class="count" id="c-compras">—</span></div>
+  </div>
+
+  <button id="btnMigrar" onclick="migrar()">Migrar todos os dados</button>
+  <div class="done-msg" id="doneMsg">✅ Migração concluída! Todos os dados foram copiados para o Supabase.</div>
+  <div id="log"></div>
+</div>
+
+<script>
+  const GAS_URL   = 'https://script.google.com/macros/s/AKfycbxzCogd1T8ypCCO7XmVbNllhEDv428sD3jVyZKMm7N0qhryF1VEgXmSAG2as_xK46nioA/exec';
+  const SB_URL    = 'https://lzpsrxttbmwqnqyuqnoq.supabase.co';
+  const SB_KEY    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6cHNyeHR0Ym13cW5xeXVxbm9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NDI4MTQsImV4cCI6MjEwMjUxODgxNH0.QSFhkDyVhHmqvCe3kPw8Nwx5YiijljbM1Xcyc9JpZZU';
+  const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+  function log(msg) {
+    const el = document.getElementById('log');
+    el.textContent += msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setStatus(key, status, count) {
+    const b = document.getElementById('b-' + key);
+    b.className = 'badge ' + status;
+    b.textContent = status === 'ok' ? '✓' : status === 'err' ? '✗' : status === 'running' ? '…' : '→';
+    if (count !== undefined) document.getElementById('c-' + key).textContent = count + ' registros';
+  }
+
+  async function fetchGAS(action, params = {}) {
+    const url = new URL(GAS_URL);
+    url.searchParams.set('action', action);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json.data || [];
+  }
+
+  async function insertBatch(table, rows) {
+    // Remove registros já existentes no Supabase para evitar conflito
+    if (!rows.length) return;
+    const BATCH = 80;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const chunk = rows.slice(i, i + BATCH);
+      const { error } = await sb.from(table).upsert(chunk, { onConflict: 'id' });
+      if (error) throw new Error(error.message);
+    }
+  }
+
+  async function migrateTable(gasAction, sbTable, gasParams = {}) {
+    setStatus(sbTable, 'running');
+    log(`[${sbTable}] Buscando dados do GAS...`);
+    try {
+      const rows = await fetchGAS(gasAction, gasParams);
+      log(`[${sbTable}] ${rows.length} registros encontrados. Inserindo no Supabase...`);
+      await insertBatch(sbTable, rows);
+      setStatus(sbTable, 'ok', rows.length);
+      log(`[${sbTable}] ✓ Concluído!`);
+    } catch (e) {
+      setStatus(sbTable, 'err');
+      log(`[${sbTable}] ✗ ERRO: ${e.message}`);
+      throw e;
+    }
+  }
+
+  async function migrar() {
+    const btn = document.getElementById('btnMigrar');
+    btn.disabled = true;
+    document.getElementById('log').textContent = '';
+    document.getElementById('doneMsg').style.display = 'none';
+
+    const tarefas = [
+      () => migrateTable('getClientes',   'clientes'),
+      () => migrateTable('getItens',      'base_itens'),
+      () => migrateTable('getObras',      'obras'),
+      () => migrateTable('getMaoDeObra',  'mao_de_obra'),
+      () => migrateTable('getOrcamentos', 'orcamentos'),
+      () => migrateTable('getFinanceiro', 'financeiro'),
+      () => migrateTable('getVeiculos',   'veiculos'),
+      () => migrateTable('getCobranca',   'cobranca'),
+      () => migrateTable('getCompras',    'compras'),
+    ];
+
+    let ok = true;
+    for (const t of tarefas) {
+      try { await t(); }
+      catch (_) { ok = false; }
+    }
+
+    if (ok) {
+      document.getElementById('doneMsg').style.display = 'block';
+      log('\n✅ Migração finalizada com sucesso!');
+    } else {
+      log('\n⚠️  Migração concluída com erros. Verifique as tabelas com ✗.');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Migrar novamente';
+  }
+</script>
+</body>
+</html>
