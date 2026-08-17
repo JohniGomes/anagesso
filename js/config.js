@@ -1,13 +1,9 @@
-// Substitua pela URL do seu Google Apps Script após publicar como Web App
-const API_URL = 'https://script.google.com/macros/s/AKfycbxzCogd1T8ypCCO7XmVbNllhEDv428sD3jVyZKMm7N0qhryF1VEgXmSAG2as_xK46nioA/exec';
-
 const CONFIG = {
-  apiUrl: API_URL,
+  supabaseUrl: 'https://lzpsrxttbmwqnqyuqnoq.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6cHNyeHR0Ym13cW5xeXVxbm9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NDI4MTQsImV4cCI6MjEwMjUxODgxNH0.QSFhkDyVhHmqvCe3kPw8Nwx5YiijljbM1Xcyc9JpZZU',
   empresa: 'Anagesso',
   moeda: 'BRL',
   funcionarios: ['Thadeu', 'Vitor', 'Gabriel', 'Dim', 'Edir', 'Leandro'],
-  // Admin — acesso completo
-  login: { usuario: 'anagesso', senha: 'anagesso@2026' },
-  // Operador de obras — acesso apenas à tela de Compras de Material
-  loginOperador: { usuario: 'obras', senha: 'obras2026' },
+  login:         { usuario: 'anagesso', senha: 'anagesso@2026' },
+  loginOperador: { usuario: 'obras',    senha: 'obras2026' },
 };
