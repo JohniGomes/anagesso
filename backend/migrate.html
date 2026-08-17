@@ -24,8 +24,11 @@
     button:disabled { opacity: .5; cursor: not-allowed; }
     #log { margin-top: 20px; background: #0f172a; border-radius: 8px; padding: 12px; font-size: 0.78rem;
            color: #94a3b8; max-height: 220px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
-    .done-msg { margin-top: 16px; padding: 12px 16px; background: #14532d; border-radius: 8px;
+    .done-msg  { margin-top: 16px; padding: 12px 16px; background: #14532d; border-radius: 8px;
                 color: #4ade80; font-weight: 600; display: none; }
+    .err-box   { margin-top: 12px; padding: 10px 14px; background: #450a0a; border-radius: 8px;
+                color: #fca5a5; font-size: 0.82rem; font-family: monospace; display: none; }
+    .err-box strong { display: block; color: #f87171; margin-bottom: 4px; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -47,6 +50,7 @@
 
   <button id="btnMigrar" onclick="migrar()">Migrar todos os dados</button>
   <div class="done-msg" id="doneMsg">✅ Migração concluída! Todos os dados foram copiados para o Supabase.</div>
+  <div class="err-box" id="errBox"><strong>❌ Erros encontrados:</strong><span id="errList"></span></div>
   <div id="log"></div>
 </div>
 
@@ -91,6 +95,8 @@
     }
   }
 
+  const erros = {};
+
   async function migrateTable(gasAction, sbTable, gasParams = {}) {
     setStatus(sbTable, 'running');
     log(`[${sbTable}] Buscando dados do GAS...`);
@@ -100,11 +106,21 @@
       await insertBatch(sbTable, rows);
       setStatus(sbTable, 'ok', rows.length);
       log(`[${sbTable}] ✓ Concluído!`);
+      delete erros[sbTable];
     } catch (e) {
       setStatus(sbTable, 'err');
+      erros[sbTable] = e.message;
       log(`[${sbTable}] ✗ ERRO: ${e.message}`);
       throw e;
     }
+  }
+
+  function mostrarErros() {
+    const box  = document.getElementById('errBox');
+    const list = document.getElementById('errList');
+    if (!Object.keys(erros).length) { box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    list.textContent = '\n' + Object.entries(erros).map(([k, v]) => `• ${k}: ${v}`).join('\n');
   }
 
   async function migrar() {
@@ -112,6 +128,7 @@
     btn.disabled = true;
     document.getElementById('log').textContent = '';
     document.getElementById('doneMsg').style.display = 'none';
+    document.getElementById('errBox').style.display = 'none';
 
     const tarefas = [
       () => migrateTable('getClientes',   'clientes'),
@@ -131,11 +148,12 @@
       catch (_) { ok = false; }
     }
 
+    mostrarErros();
     if (ok) {
       document.getElementById('doneMsg').style.display = 'block';
       log('\n✅ Migração finalizada com sucesso!');
     } else {
-      log('\n⚠️  Migração concluída com erros. Verifique as tabelas com ✗.');
+      log('\n⚠️  Migração concluída com erros. Veja os detalhes acima.');
     }
     btn.disabled = false;
     btn.textContent = 'Migrar novamente';
