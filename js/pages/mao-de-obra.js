@@ -300,7 +300,6 @@ const MaoDeObra = {
   },
 
   aplicarFiltros() {
-    this.atualizarSemanasCheck();
     const func    = document.getElementById('filtroFunc')?.value || '';
     const mes     = document.getElementById('filtroMes')?.value  || '';
     const idxs    = this._semanasChecadas();
